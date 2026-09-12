@@ -1,0 +1,707 @@
+[
+ {
+  "name": "rg_rg0.0",
+  "group": "rg_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "rg_rg0.2",
+  "group": "rg_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.2,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "rg_rg0.4",
+  "group": "rg_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.4,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "rg_rg0.6",
+  "group": "rg_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "rg_rg0.8",
+  "group": "rg_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "ntrait_t2",
+  "group": "ntrait_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "ntrait_t3",
+  "group": "ntrait_sweep",
+  "n_pop": 2,
+  "n_trait": 3,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "ntrait_t5",
+  "group": "ntrait_sweep",
+  "n_pop": 2,
+  "n_trait": 5,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "npop_p1",
+  "group": "npop_sweep",
+  "n_pop": 1,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "npop_p2",
+  "group": "npop_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "npop_p3",
+  "group": "npop_sweep",
+  "n_pop": 3,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric"
+ },
+ {
+  "name": "power_1to1",
+  "group": "power_asym",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    20000,
+    20000
+   ]
+  ]
+ },
+ {
+  "name": "power_2to1",
+  "group": "power_asym",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas": [
+   [
+    20000,
+    10000
+   ],
+   [
+    20000,
+    10000
+   ]
+  ]
+ },
+ {
+  "name": "power_5to1",
+  "group": "power_asym",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas": [
+   [
+    20000,
+    4000
+   ],
+   [
+    20000,
+    4000
+   ]
+  ]
+ },
+ {
+  "name": "power_10to1",
+  "group": "power_asym",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas": [
+   [
+    20000,
+    2000
+   ],
+   [
+    20000,
+    2000
+   ]
+  ]
+ },
+ {
+  "name": "h2_0.1",
+  "group": "h2_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric",
+  "h2": [
+   0.1,
+   0.1
+  ]
+ },
+ {
+  "name": "h2_0.3",
+  "group": "h2_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric",
+  "h2": [
+   0.3,
+   0.3
+  ]
+ },
+ {
+  "name": "h2_0.5",
+  "group": "h2_sweep",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "n_gwas_pattern": "asymmetric",
+  "h2": [
+   0.5,
+   0.5
+  ]
+ },
+ {
+  "name": "overlap_rho0.0",
+  "group": "overlap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.5,
+  "n_gwas_pattern": "symmetric",
+  "rho_pheno": 0.0,
+  "n_overlap": [
+   5000,
+   5000
+  ]
+ },
+ {
+  "name": "overlap_rho0.2",
+  "group": "overlap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.5,
+  "n_gwas_pattern": "symmetric",
+  "rho_pheno": 0.2,
+  "n_overlap": [
+   5000,
+   5000
+  ]
+ },
+ {
+  "name": "overlap_rho0.4",
+  "group": "overlap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.5,
+  "n_gwas_pattern": "symmetric",
+  "rho_pheno": 0.4,
+  "n_overlap": [
+   5000,
+   5000
+  ]
+ },
+ {
+  "name": "sym_rg0.2",
+  "group": "symmetric",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.2,
+  "n_gwas_pattern": "symmetric"
+ },
+ {
+  "name": "sym_rg0.5",
+  "group": "symmetric",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.5,
+  "n_gwas_pattern": "symmetric"
+ },
+ {
+  "name": "sym_rg0.8",
+  "group": "symmetric",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "n_gwas_pattern": "symmetric"
+ },
+ {
+  "name": "rgfrac_rg0.0_f0.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 0.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.0_f0.25",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 0.25,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.0_f0.50",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 0.5,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.0_f0.75",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 0.75,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.0_f1.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.2_f0.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.2,
+  "frac_shared_causal": 0.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.2_f0.25",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.2,
+  "frac_shared_causal": 0.25,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.2_f0.50",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.2,
+  "frac_shared_causal": 0.5,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.2_f0.75",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.2,
+  "frac_shared_causal": 0.75,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.2_f1.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.2,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.4_f0.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.4,
+  "frac_shared_causal": 0.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.4_f0.25",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.4,
+  "frac_shared_causal": 0.25,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.4_f0.50",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.4,
+  "frac_shared_causal": 0.5,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.4_f0.75",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.4,
+  "frac_shared_causal": 0.75,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.4_f1.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.4,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.6_f0.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "frac_shared_causal": 0.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.6_f0.25",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "frac_shared_causal": 0.25,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.6_f0.50",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "frac_shared_causal": 0.5,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.6_f0.75",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "frac_shared_causal": 0.75,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.6_f1.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.6,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.8_f0.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 0.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.8_f0.25",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 0.25,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.8_f0.50",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 0.5,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.8_f0.75",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 0.75,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ },
+ {
+  "name": "rgfrac_rg0.8_f1.00",
+  "group": "rg_frac_grid",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ]
+ }
+]

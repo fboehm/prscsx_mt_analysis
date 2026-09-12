@@ -1,0 +1,216 @@
+"""
+Snakefile_real
+--------------
+Real-data PRS-CSx-MT pipeline: LDL + HDL + TG, EUR / EAS / AFR / AMR.
+
+Steps
+  1. download_snpinfo    – HM3 SNP info file from Dropbox
+  2. download_ldblk      – 1KG LD reference panels per population (Dropbox)
+  3. make_proxy_bim      – proxy .bim from HM3 SNP list (replace with AoU BIM)
+  4. download_pan_ukbb   – Pan-UKBB flat file per trait (S3, ~2-4 GB each)
+  5. format_sumstats     – extract per-population columns → PRScsx format
+  6. run_prscsx_mt       – run MCMC, write posterior SNP weights
+
+Usage
+  snakemake -s Snakefile_real --cores 8
+  snakemake -s Snakefile_real --cores 8 --config n_jobs=8
+  # dry-run:
+  snakemake -s Snakefile_real -n
+"""
+
+configfile: "config_real.yaml"
+
+# ---------------------------------------------------------------------------
+# Constants derived from config
+# ---------------------------------------------------------------------------
+REF_DIR  = config["ref_dir"]
+POPS     = config["populations"]           # ["EUR", "EAS", "AFR", "AMR"]
+TRAITS   = config["traits"]               # ["LDL", "HDL", "TG"]
+RAW_DIR  = config["sumstats_raw_dir"]
+FMT_DIR  = config["sumstats_fmt_dir"]
+OUT_DIR  = config["out_dir"]
+BIM_PFX  = config["bim_prefix"]
+
+# Dropbox direct-download URLs for 1KG LD reference panels
+# Source: https://github.com/getian107/PRScsx (README)
+LDBLK_URLS = {
+    "AFR": "https://www.dropbox.com/s/mq94h1q9uuhun1h/ldblk_1kg_afr.tar.gz?dl=1",
+    "AMR": "https://www.dropbox.com/s/uv5ydr4uv528lca/ldblk_1kg_amr.tar.gz?dl=1",
+    "EAS": "https://www.dropbox.com/s/7ek4lwwf2b7f749/ldblk_1kg_eas.tar.gz?dl=1",
+    "EUR": "https://www.dropbox.com/s/mt6var0z96vb6fv/ldblk_1kg_eur.tar.gz?dl=1",
+}
+SNPINFO_URL = "https://www.dropbox.com/s/rhi806sstvppzzz/snpinfo_mult_1kg_hm3?dl=1"
+
+# Pan-UKBB summary statistics S3 bucket (public, no auth required)
+PAN_UKBB_BASE = "https://pan-ukb-us-east-1.s3.amazonaws.com/sumstats_flat_files"
+
+
+# ---------------------------------------------------------------------------
+# Helper functions for PRScsx_mt CLI arguments
+# ---------------------------------------------------------------------------
+
+def sst_arg():
+    """Build --sst_file=trait1_pop1,...;trait2_pop1,... string."""
+    parts = [
+        ",".join(f"{FMT_DIR}/{trait}_{pop}.txt" for pop in POPS)
+        for trait in TRAITS
+    ]
+    return ";".join(parts)
+
+
+def n_gwas_arg():
+    """Build --n_gwas=n_t1_p1,...;n_t2_p1,... string."""
+    parts = [
+        ",".join(str(config["n_gwas"][trait][pop]) for pop in POPS)
+        for trait in TRAITS
+    ]
+    return ";".join(parts)
+
+
+def optional_args():
+    """Build optional MCMC flags from config."""
+    args = []
+    if config.get("phi") is not None:
+        args.append(f"--phi={config['phi']}")
+    if config.get("n_iter") is not None:
+        args += [f"--n_iter={config['n_iter']}", f"--n_burnin={config['n_burnin']}"]
+    if config.get("rho_pheno") is not None:
+        args.append(f"--rho_pheno={config['rho_pheno']}")
+    if config.get("n_overlap") is not None:
+        args.append("--n_overlap=" + ",".join(map(str, config["n_overlap"])))
+    if config.get("chromosomes") is not None:
+        args.append("--chrom=" + ",".join(map(str, config["chromosomes"])))
+    args.append(f"--n_jobs={config['n_jobs']}")
+    return " ".join(args)
+
+
+# ---------------------------------------------------------------------------
+# Rules
+# ---------------------------------------------------------------------------
+
+rule all:
+    input:
+        f"{OUT_DIR}/.done",
+
+
+# 1. Download HM3 SNP information file
+rule download_snpinfo:
+    output:
+        f"{REF_DIR}/snpinfo_mult_1kg_hm3",
+    params:
+        url=SNPINFO_URL,
+        ref_dir=REF_DIR,
+    shell:
+        "mkdir -p {params.ref_dir} && "
+        "wget -q -L -O {output} '{params.url}'"
+
+
+# 2. Download and extract 1KG LD reference blocks per population
+# The sentinel file records completion; the actual HDF5 files live in
+# {REF_DIR}/ldblk_1kg_{pop_lower}/ (lowercase, as expected by PRScsx_mt).
+rule download_ldblk:
+    output:
+        sentinel=f"{REF_DIR}/.ldblk_{{pop}}_done",
+    params:
+        url=lambda wc: LDBLK_URLS[wc.pop],
+        pop_lower=lambda wc: wc.pop.lower(),
+        ref_dir=REF_DIR,
+    shell:
+        """
+        mkdir -p {params.ref_dir}
+        wget -q -L -O {params.ref_dir}/ldblk_1kg_{params.pop_lower}.tar.gz \
+            '{params.url}'
+        tar -zxf {params.ref_dir}/ldblk_1kg_{params.pop_lower}.tar.gz \
+            -C {params.ref_dir}
+        rm  {params.ref_dir}/ldblk_1kg_{params.pop_lower}.tar.gz
+        touch {output.sentinel}
+        """
+
+
+# 3. Build a proxy BIM file from the HM3 SNP info file.
+# Contains all ~1.1 M HM3 SNPs.  Replace bim_prefix in config_real.yaml with
+# your real AoU BIM prefix once you have exported it from the platform.
+rule make_proxy_bim:
+    input:
+        snpinfo=f"{REF_DIR}/snpinfo_mult_1kg_hm3",
+    output:
+        bim=f"{BIM_PFX}.bim",
+    script:
+        "scripts/make_proxy_bim.py"
+
+
+# 4. Download Pan-UKBB flat file for each trait.
+# Files are bgzip-compressed TSV (~2-4 GB each).
+rule download_pan_ukbb:
+    output:
+        bgz=f"{RAW_DIR}/{{trait}}_pan_ukbb.tsv.bgz",
+    params:
+        url=lambda wc: (
+            f"{PAN_UKBB_BASE}/"
+            f"{config['pan_ukbb'][wc.trait]['phenocode']}"
+            f"-{config['pan_ukbb'][wc.trait]['sex']}.tsv.bgz"
+        ),
+        raw_dir=RAW_DIR,
+    shell:
+        "mkdir -p {params.raw_dir} && "
+        "wget -q -L -O {output.bgz} '{params.url}'"
+
+
+# 5. Format Pan-UKBB → PRScsx_mt input format.
+# One input bgz file → K output files (one per population).
+rule format_sumstats:
+    input:
+        bgz=f"{RAW_DIR}/{{trait}}_pan_ukbb.tsv.bgz",
+        snpinfo=f"{REF_DIR}/snpinfo_mult_1kg_hm3",
+    output:
+        expand(f"{FMT_DIR}/{{trait}}_{{pop}}.txt", pop=POPS, allow_missing=True),
+    params:
+        pops=POPS,
+        out_dir=FMT_DIR,
+    script:
+        "scripts/format_pan_ukbb.py"
+
+
+# 6. Run PRS-CSx-MT.
+# Produces per-population, per-chromosome posterior weight files in OUT_DIR.
+rule run_prscsx_mt:
+    input:
+        snpinfo=f"{REF_DIR}/snpinfo_mult_1kg_hm3",
+        ldblk=expand(f"{REF_DIR}/.ldblk_{{pop}}_done", pop=POPS),
+        bim=f"{BIM_PFX}.bim",
+        sumstats=expand(
+            f"{FMT_DIR}/{{trait}}_{{pop}}.txt", trait=TRAITS, pop=POPS
+        ),
+    output:
+        sentinel=f"{OUT_DIR}/.done",
+    params:
+        ref_dir=REF_DIR,
+        bim_prefix=BIM_PFX,
+        pop_arg=",".join(POPS),
+        sst_arg=sst_arg(),
+        n_gwas_arg=n_gwas_arg(),
+        opt_args=optional_args(),
+        out_dir=OUT_DIR,
+        prscsx_mt_dir="PRScsx_mt",
+    shell:
+        # Limit numpy thread count to 1 per process; parallelism comes from
+        # --n_jobs (chromosome-level), not from OpenBLAS/MKL within a process.
+        """
+        export MKL_NUM_THREADS=1
+        export NUMEXPR_NUM_THREADS=1
+        export OMP_NUM_THREADS=1
+
+        mkdir -p {params.out_dir}
+
+        python {params.prscsx_mt_dir}/PRScsx_mt.py \
+            --ref_dir={params.ref_dir} \
+            --bim_prefix={params.bim_prefix} \
+            --sst_file='{params.sst_arg}' \
+            --n_gwas='{params.n_gwas_arg}' \
+            --pop={params.pop_arg} \
+            --out_dir={params.out_dir} \
+            --out_name=lipids \
+            {params.opt_args}
+
+        touch {output.sentinel}
+        """

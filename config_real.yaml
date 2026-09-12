@@ -1,0 +1,87 @@
+# config_real.yaml
+# PRS-CSx-MT real-data analysis: LDL + HDL + TG, four populations
+# Run with: snakemake -s Snakefile_real --cores <N>
+
+# --- Reference panel ---
+ref_dir:  "data/ld_ref"     # snpinfo file + ldblk_1kg_*/ directories land here
+ref_type: "1kg"             # "1kg" or "ukbb"
+
+# --- Target BIM file ---
+# The BIM provides the SNP universe of your scoring cohort.
+# Until you export your AoU BIM, a proxy built from the full HM3 SNP list is
+# created automatically (rule make_proxy_bim).  Replace this path with your
+# real AoU BIM prefix (without .bim) once it is available.
+bim_prefix: "data/ld_ref/hm3_proxy"
+
+# --- Traits and Pan-UKBB phenotype codes ---
+traits: ["LDL", "HDL", "TG"]
+
+pan_ukbb:
+  LDL:
+    phenocode: "30780"
+    sex: "both_sexes"
+  HDL:
+    phenocode: "30760"
+    sex: "both_sexes"
+  TG:
+    phenocode: "30870"
+    sex: "both_sexes"
+
+# --- Populations (must match PRScsx supported codes) ---
+populations: ["EUR", "EAS", "AFR", "AMR"]
+
+# --- GWAS sample sizes per trait x population ---
+# Approximate values from the Pan-UKBB manifest.
+# The format_pan_ukbb.py script prints actual N per population; update here if
+# they differ materially from these defaults.
+n_gwas:
+  LDL:
+    EUR: 343621
+    EAS:   3951
+    AFR:   6435
+    AMR:    980
+  HDL:
+    EUR: 343621
+    EAS:   3951
+    AFR:   6435
+    AMR:    980
+  TG:
+    EUR: 343621
+    EAS:   3951
+    AFR:   6435
+    AMR:    980
+
+# --- Sample-overlap correction (recommended when traits share cohort members) ---
+# All three lipid traits are measured in the same UK Biobank participants, so
+# EUR GWAS errors are correlated across traits.
+# rho_pheno: average phenotypic correlation between the trait pair with highest
+#   absolute correlation.  For LDL/HDL/TG a conservative |rho| ~ 0.3 is used.
+#   Set to null to skip correction entirely.
+# n_overlap: number of overlapping participants per population (same order as
+#   `populations`).  Set to null to skip.
+rho_pheno: null      # set to e.g. 0.3 once you know rho; null = no correction
+n_overlap: null      # e.g. [343621, 3951, 6435, 980]; null = no correction
+
+# --- MCMC settings ---
+# phi: global shrinkage.  1e-2 suits highly polygenic continuous traits.
+#   Set to null to let the algorithm estimate it (slower, needs large N).
+phi: 1.0e-2
+# n_iter / n_burnin: null → defaults (K*1000 / K*500 where K = # populations).
+#   For a quick test, set n_iter: 500 and n_burnin: 200.
+n_iter:   null
+n_burnin: null
+thin: 5
+
+# --- Chromosomes ---
+# null → all 22 autosomes.  Set to e.g. [22] for a fast test run.
+chromosomes: null
+
+# --- Parallelism ---
+# n_jobs: chromosomes processed simultaneously inside PRScsx_mt.
+# Set to the number of physical CPU cores you want to dedicate.
+n_jobs: 4
+
+# --- Directories ---
+sumstats_raw_dir: "data/sumstats/raw"
+sumstats_fmt_dir: "data/sumstats/formatted"
+out_dir:          "results/real_data/lipids"

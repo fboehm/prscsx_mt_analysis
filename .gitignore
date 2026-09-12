@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Simulation sweep outputs (regenerable, can be large)
+sim_sweep/results/
+sim_sweep/logs/
+sim_sweep/job_list*.txt
+
+# Ad-hoc comparison/test outputs (regenerable)
+comparison_output/
+test_output/
+underrep_rescue_output/
+
+# OS junk
+.DS_Store
+Thumbs.db
