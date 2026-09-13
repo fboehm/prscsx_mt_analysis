@@ -29,20 +29,17 @@ Dry run (prints the DAG, executes nothing — good first check):
 
     snakemake -s Snakefile -n
 
-On Slurm (Snakemake 7.x, the version this profile targets):
+On Slurm (Snakemake 8+, the version profiles/slurm targets):
 
-    mkdir -p logs/slurm
+    pip install snakemake-executor-plugin-slurm       # once, in your snakemake env
+    # edit profiles/slurm/config.yaml first: set slurm_partition (and slurm_account
+    # only if your cluster needs one). --jobs there caps how many jobs queue at once.
     snakemake -s Snakefile --profile profiles/slurm
 
-    # edit profiles/slurm/config.yaml first: set slurm_account / slurm_partition.
-    # --jobs there caps how many replicate jobs are queued at once.
+    # Slurm logs are written under .snakemake/slurm_logs/ by the executor plugin.
 
-On Slurm (Snakemake ≥ 8, executor plugin) — resource names are identical:
-
-    pip install snakemake-executor-plugin-slurm
-    snakemake -s Snakefile --executor slurm --jobs 200 \
-        --default-resources slurm_account=ACCT slurm_partition=PART \
-        --retries 2 --latency-wait 60 --rerun-incomplete
+On Snakemake 7.x (generic --cluster), the profile instead needs a
+`cluster: "sbatch ..."` block — see git history for that form.
 
 Notes
 -----

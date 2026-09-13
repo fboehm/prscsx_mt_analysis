@@ -65,15 +65,17 @@ cd sim_sweep
 snakemake -s Snakefile -n                       # dry run: preview the DAG
 snakemake -s Snakefile --cores 8                # run locally
 
-# On Slurm (Snakemake 7.x): edit profiles/slurm/config.yaml first
-# (set slurm_account / slurm_partition), then:
-mkdir -p logs/slurm
+# On Slurm (Snakemake 8+): install the executor plugin once, edit
+# profiles/slurm/config.yaml (set slurm_partition, and slurm_account if needed),
+# then submit:
+pip install snakemake-executor-plugin-slurm
 snakemake -s Snakefile --profile profiles/slurm
 ```
 
 Sweep parameters (replicate count, MCMC length, interpreter, sibling-repo paths,
-resource scaling) live in `sim_sweep/config.yaml`. The Snakefile header documents
-the Snakemake ≥ 8 `--executor slurm` invocation (same resource names, no edits).
+resource scaling) live in `sim_sweep/config.yaml`. `profiles/slurm/` targets the
+Snakemake 8+ SLURM executor plugin; on Snakemake 7.x the profile instead needs a
+generic `cluster: "sbatch ..."` block.
 
 ## Layout
 

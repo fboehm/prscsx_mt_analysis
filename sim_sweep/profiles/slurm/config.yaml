@@ -1,23 +1,37 @@
-# Snakemake 7.x generic-Slurm profile for the PRS-CSx-MT simulation sweep.
+# Snakemake 8+ SLURM profile for the PRS-CSx-MT simulation sweep.
+#
+# Requires the SLURM executor plugin (once, in your snakemake env):
+#     pip install snakemake-executor-plugin-slurm
 #
 # Usage (from inside sim_sweep/):
-#     mkdir -p logs/slurm
 #     snakemake -s Snakefile --profile profiles/slurm
 #
-# EDIT BEFORE FIRST RUN: set slurm_account and slurm_partition below to values
-# valid on your cluster (drop --account from the sbatch line if your cluster
-# does not use accounts). Everything else has sane defaults.
+# EDIT BEFORE FIRST RUN: set slurm_partition (find yours with `sinfo -s`), and
+# slurm_account only if your cluster requires one (many don't — delete that line
+# if so). Per-replicate runtime/mem/cpus come from the Snakefile and override the
+# fallbacks below; the account/partition here apply to every job.
 #
-# Snakemake >= 8 uses the executor plugin instead of this generic profile — see
-# the header of Snakefile for the one-line `--executor slurm` invocation; the
-# resource names (runtime, mem_mb, cpus_per_task, slurm_account, slurm_partition)
-# are identical, so the Snakefile needs no changes.
+# (Snakemake 7's generic `--cluster "sbatch ..."` mechanism was removed in v8;
+#  that is why the old `cluster:` profile failed with "No rule to produce
+#  --cluster=sbatch...". This profile uses the native SLURM executor instead.)
 
-jobs: 200                 # max replicate jobs queued at once (throttles submission)
+executor: slurm
+jobs: 200                 # max jobs queued at once (throttles submission)
+
+default-resources:
+  - "slurm_partition='CHANGE_ME'"      # e.g. 'general' — or delete to use the cluster default
+  - "slurm_account='CHANGE_ME'"        # delete this line if your cluster has no accounts
+  - "runtime=180"                      # minutes (fallback; run_replicate sets its own)
+  - "mem_mb=8000"
+  - "cpus_per_task=1"
+
+retries: 2                # retry a failed/timed-out job; the Snakefile escalates
+                          # its runtime/mem on each attempt
 latency-wait: 60          # tolerate shared-filesystem lag before declaring outputs missing
 rerun-incomplete: true
-keep-going: true          # a failed replicate doesn't halt the other 1589
+keep-going: true          # a failed replicate doesn't halt the other 1469
 printshellcmds: true
+<<<<<<< HEAD
 restart-times: 2          # retry a failed/timed-out job; resources escalate per attempt
 
 # One sbatch per replicate job. {resources.*} and {threads} are filled from the
@@ -43,3 +57,5 @@ default-resources:
   - "slurm_partition='compute'"
   - "runtime=180"
   - "mem_mb=8000"
+=======
+>>>>>>> 7d535e97462d2e270b39aaa77a463aa0690285d2
