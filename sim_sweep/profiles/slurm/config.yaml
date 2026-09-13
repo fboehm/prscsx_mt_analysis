@@ -6,22 +6,18 @@
 # Usage (from inside sim_sweep/):
 #     snakemake -s Snakefile --profile profiles/slurm
 #
-# EDIT BEFORE FIRST RUN: set slurm_partition (find yours with `sinfo -s`), and
-# slurm_account only if your cluster requires one (many don't — delete that line
-# if so). Per-replicate runtime/mem/cpus come from the Snakefile and override the
-# fallbacks below; the account/partition here apply to every job.
-#
-# (Snakemake 7's generic `--cluster "sbatch ..."` mechanism was removed in v8;
-#  that is why the old `cluster:` profile failed with "No rule to produce
-#  --cluster=sbatch...". This profile uses the native SLURM executor instead.)
+# slurm_partition / slurm_account below are set for the SDSU "jacks" cluster
+# (partition 'compute', account 'math'); change them for a different cluster.
+# Per-replicate runtime/mem/cpus come from the Snakefile and override the
+# fallbacks here; the account/partition apply to every job.
 
 executor: slurm
 jobs: 200                 # max jobs queued at once (throttles submission)
 
 default-resources:
-  - "slurm_partition='CHANGE_ME'"      # e.g. 'general' — or delete to use the cluster default
-  - "slurm_account='CHANGE_ME'"        # delete this line if your cluster has no accounts
-  - "runtime=180"                      # minutes (fallback; run_replicate sets its own)
+  - "slurm_partition='compute'"
+  - "slurm_account='math'"
+  - "runtime=180"          # minutes (fallback; run_replicate sets its own per scenario)
   - "mem_mb=8000"
   - "cpus_per_task=1"
 
@@ -31,31 +27,3 @@ latency-wait: 60          # tolerate shared-filesystem lag before declaring outp
 rerun-incomplete: true
 keep-going: true          # a failed replicate doesn't halt the other 1469
 printshellcmds: true
-<<<<<<< HEAD
-restart-times: 2          # retry a failed/timed-out job; resources escalate per attempt
-
-# One sbatch per replicate job. {resources.*} and {threads} are filled from the
-# rule's resources; {rule}/{jobid} keep log names unique. Only run_replicate is
-# submitted here (all/collect are local rules), so its wildcards are always set.
-cluster: >-
-  sbatch
-  --parsable
-  --account={resources.slurm_account}
-  --partition={resources.slurm_partition}
-  --cpus-per-task={threads}
-  --mem={resources.mem_mb}
-  --time={resources.runtime}
-  --job-name=smk-{rule}-{wildcards.scenario}-{wildcards.seed}
-  --output=logs/slurm/{rule}_{wildcards.scenario}_{wildcards.seed}_%j.out
-  --error=logs/slurm/{rule}_{wildcards.scenario}_{wildcards.seed}_%j.err
-
-# Fallback resources for any value the Snakefile does not set. run_replicate
-# overrides runtime and mem_mb with scenario-scaled functions; the account and
-# partition below apply to every submitted job.
-default-resources:
-  - "slurm_account='math'"
-  - "slurm_partition='compute'"
-  - "runtime=180"
-  - "mem_mb=8000"
-=======
->>>>>>> 7d535e97462d2e270b39aaa77a463aa0690285d2
