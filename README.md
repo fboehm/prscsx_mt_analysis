@@ -52,6 +52,29 @@ correlation (`rg`) with the shared-causal fraction (`frac_shared_causal`) under
 both an auto-φ and a matched fixed-φ arm, so the multi-trait benefit can be
 decomposed into φ-estimation pooling vs. genuine cross-trait borrowing.
 
+### Running the same sweep with Snakemake (Slurm)
+
+`sim_sweep/Snakefile` wraps the harness above in a Snakemake DAG: one job per
+`(scenario, seed)` replicate (calling `run_one_replicate.py`), then a `collect`
+step (`collect_results.py`). It tracks and retries individual replicates instead
+of resubmitting the whole array, and requests per-replicate Slurm resources that
+scale with the scenario's `n_trait × n_pop`.
+
+```bash
+cd sim_sweep
+snakemake -s Snakefile -n                       # dry run: preview the DAG
+snakemake -s Snakefile --cores 8                # run locally
+
+# On Slurm (Snakemake 7.x): edit profiles/slurm/config.yaml first
+# (set slurm_account / slurm_partition), then:
+mkdir -p logs/slurm
+snakemake -s Snakefile --profile profiles/slurm
+```
+
+Sweep parameters (replicate count, MCMC length, interpreter, sibling-repo paths,
+resource scaling) live in `sim_sweep/config.yaml`. The Snakefile header documents
+the Snakemake ≥ 8 `--executor slurm` invocation (same resource names, no edits).
+
 ## Layout
 
 - `sim_sweep/` — Slurm simulation harness (the main pipeline)

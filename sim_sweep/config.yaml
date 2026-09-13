@@ -1,0 +1,38 @@
+# Configuration for the PRS-CSx-MT simulation sweep Snakefile.
+# Override any value on the command line, e.g.:  snakemake --config n_replicates=5
+
+# ── sweep grid ──────────────────────────────────────────────────────────────
+n_replicates: 30        # seeds 1..n_replicates per scenario (matches the manual
+                        # harness's generate_job_list.py N_REPLICATES)
+
+# ── per-replicate simulation settings (mirror submit_jobs.sh) ────────────────
+n_snp:    2000
+n_iter:   1000
+n_burnin: 500
+
+# ── interpreter ──────────────────────────────────────────────────────────────
+# Must have numpy + scipy + h5py. Locally that is /usr/bin/python3.12 (the
+# default conda python3 lacks scipy). On the cluster, set this to the interpreter
+# from your module/venv, e.g. after `module load python/3.11`.
+python: "python3"
+
+# ── sibling method/baseline repos ────────────────────────────────────────────
+# Leave blank to rely on the default sibling layout (PRScsx_mt/ and PRScsx/ next
+# to this repo) or on PRSCSX_MT_DIR / PRSCSX_DIR already in the environment.
+# Set them here to have the Snakefile export them into every job — robust on
+# clusters that do not forward the submit-node environment to compute nodes.
+prscsx_mt_dir: ""       # e.g. /shared/project/PRScsx_mt
+prscsx_dir:    ""       # e.g. /shared/project/PRScsx
+
+# ── Slurm resource scaling ───────────────────────────────────────────────────
+# Effective request = base + per_unit × (n_trait × n_pop), then × retry attempt.
+# Defaults give a 2-trait/2-pop replicate ~90 min / 8 GB (as in submit_jobs.sh)
+# and a 5-trait/2-pop replicate ~180 min / 14 GB.
+runtime_base_min:     30
+runtime_per_unit_min: 15
+mem_base_mb:          4000
+mem_per_unit_mb:      1000
+
+# ── optional path overrides (else derived from the Snakefile location) ───────
+# scenarios_file: "scenarios.json"
+# results_dir:    "results"

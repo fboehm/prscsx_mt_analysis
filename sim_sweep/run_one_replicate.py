@@ -139,6 +139,26 @@ def _pearson(a, b):
     return 0.0
 
 
+def _derive_seed(base, *key):
+    """Derive a distinct, well-separated 32-bit seed from a base seed + integer key.
+
+    The data simulator (np.random.RandomState) and each method's sampler (numpy's
+    global RNG, seeded inside mcmc via `random.seed`) are all MT19937. Passing the
+    bare `base` to every one of them makes them share one MT19937(base) stream, so
+    the sampler draws from the same randomness that generated the data, and every
+    method within a replicate reuses it. Routing `base` through SeedSequence with a
+    per-stream key instead gives each an independent, high-quality stream while the
+    whole replicate stays fully reproducible in `base`.
+
+    Key convention: 0 = data simulation; (1, tt) = single-trait PRS-CSx for trait
+    tt; 2 = joint PRS-CSx-MT. (To restore common random numbers across methods —
+    variance reduction on the MT - baseline delta — give both methods the same key.)
+    """
+    if base is None:
+        return None
+    return int(np.random.SeedSequence([int(base), *key]).generate_state(1)[0])
+
+
 # ── single-trait PRS-CSx ─────────────────────────────────────────────────────
 def _run_prscsx(ref_dir, bim_prefix, sst_files, n_gwas_per_pop,
                 pop_labels, out_dir, out_name, n_iter, n_burnin, seed, phi=None):
@@ -272,7 +292,7 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
         n_gwas=n_gwas_list, block_size=_BLOCK_SIZE, ld_decay=0.5,
         rg=rg, frac_shared_causal=frac, rho_pop=rho_pop, h2=h2,
         rho_pheno=rho_pheno, n_overlap=n_overlap,
-        pop=pop_labels, out_dir=data_dir, chrom=1, seed=seed)
+        pop=pop_labels, out_dir=data_dir, chrom=1, seed=_derive_seed(seed, 0))
 
     n_gwas_dict = {(pp, tt): n_gwas_list[pp][tt]
                    for pp in range(n_pop) for tt in range(n_trait)}
@@ -298,7 +318,8 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
             n_gwas_t = [n_gwas_list[pp][tt] for pp in range(n_pop)]
             out_st   = os.path.join(rep_dir, phi_mode, 'prscsx_t%d' % tt)
             _run_prscsx(data_dir, bim, sst_files_t, n_gwas_t, pop_labels,
-                        out_st, 'prs_t%d' % tt, n_iter, n_burnin, seed, phi=phi)
+                        out_st, 'prs_t%d' % tt, n_iter, n_burnin,
+                        _derive_seed(seed, 1, tt), phi=phi)
             res = _evaluate(out_st, 'prs_t%d' % tt, data_dir, pop_labels,
                             n_trait=1, is_mt=False, single_trait_idx=tt)
             for (pp, _), corr in res.items():
@@ -309,7 +330,8 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
         t0 = time.time()
         out_mt = os.path.join(rep_dir, phi_mode, 'prscsx_mt')
         _run_prscsx_mt(data_dir, bim, sst_files_mt, n_gwas_dict, pop_labels,
-                       out_mt, 'prs_mt', n_trait, rho_e, n_iter, n_burnin, seed, phi=phi)
+                       out_mt, 'prs_mt', n_trait, rho_e, n_iter, n_burnin,
+                       _derive_seed(seed, 2), phi=phi)
         mt_corr = _evaluate(out_mt, 'prs_mt', data_dir, pop_labels,
                             n_trait=n_trait, is_mt=True)
         time_mt = time.time() - t0

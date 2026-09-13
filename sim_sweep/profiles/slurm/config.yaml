@@ -1,0 +1,45 @@
+# Snakemake 7.x generic-Slurm profile for the PRS-CSx-MT simulation sweep.
+#
+# Usage (from inside sim_sweep/):
+#     mkdir -p logs/slurm
+#     snakemake -s Snakefile --profile profiles/slurm
+#
+# EDIT BEFORE FIRST RUN: set slurm_account and slurm_partition below to values
+# valid on your cluster (drop --account from the sbatch line if your cluster
+# does not use accounts). Everything else has sane defaults.
+#
+# Snakemake >= 8 uses the executor plugin instead of this generic profile — see
+# the header of Snakefile for the one-line `--executor slurm` invocation; the
+# resource names (runtime, mem_mb, cpus_per_task, slurm_account, slurm_partition)
+# are identical, so the Snakefile needs no changes.
+
+jobs: 200                 # max replicate jobs queued at once (throttles submission)
+latency-wait: 60          # tolerate shared-filesystem lag before declaring outputs missing
+rerun-incomplete: true
+keep-going: true          # a failed replicate doesn't halt the other 1589
+printshellcmds: true
+restart-times: 2          # retry a failed/timed-out job; resources escalate per attempt
+
+# One sbatch per replicate job. {resources.*} and {threads} are filled from the
+# rule's resources; {rule}/{jobid} keep log names unique. Only run_replicate is
+# submitted here (all/collect are local rules), so its wildcards are always set.
+cluster: >-
+  sbatch
+  --parsable
+  --account={resources.slurm_account}
+  --partition={resources.slurm_partition}
+  --cpus-per-task={threads}
+  --mem={resources.mem_mb}
+  --time={resources.runtime}
+  --job-name=smk-{rule}-{wildcards.scenario}-{wildcards.seed}
+  --output=logs/slurm/{rule}_{wildcards.scenario}_{wildcards.seed}_%j.out
+  --error=logs/slurm/{rule}_{wildcards.scenario}_{wildcards.seed}_%j.err
+
+# Fallback resources for any value the Snakefile does not set. run_replicate
+# overrides runtime and mem_mb with scenario-scaled functions; the account and
+# partition below apply to every submitted job.
+default-resources:
+  - "slurm_account='CHANGE_ME'"
+  - "slurm_partition='CHANGE_ME'"
+  - "runtime=180"
+  - "mem_mb=8000"

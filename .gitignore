@@ -13,6 +13,11 @@ env/
 sim_sweep/results/
 sim_sweep/logs/
 sim_sweep/job_list*.txt
+sim_sweep/all_results.csv
+sim_sweep/deltas.csv
+
+# Snakemake bookkeeping
+.snakemake/
 
 # Ad-hoc comparison/test outputs (regenerable)
 comparison_output/

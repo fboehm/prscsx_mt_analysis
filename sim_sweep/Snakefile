@@ -1,0 +1,204 @@
+"""
+Snakefile — PRS-CSx-MT simulation sweep (Slurm-ready)
+=====================================================
+
+A Snakemake wrapper over the sim_sweep harness. It replaces the hand-rolled
+sbatch array (generate_job_list.py + submit_jobs.sh) with a DAG that tracks and
+retries each (scenario, seed) replicate individually, then collects everything.
+
+    rule all
+      └── collect               (collect_results.py → all_results.csv, deltas.csv)
+            └── run_replicate    (run_one_replicate.py, one job per scenario×seed)
+                  → results/{scenario}/seed_{seed}/result.csv
+
+Scenarios come from scenarios.json (same file the manual harness uses); seeds
+are 1..n_replicates. With the shipped scenarios.json (53 scenarios) and the
+default 30 replicates that is 1590 replicate jobs.
+
+Run it
+------
+Always run from inside this directory so paths resolve as the harness expects:
+
+    cd sim_sweep
+
+Local (laptop / one node), 8 cores:
+
+    snakemake -s Snakefile --cores 8
+
+Dry run (prints the DAG, executes nothing — good first check):
+
+    snakemake -s Snakefile -n
+
+On Slurm (Snakemake 7.x, the version this profile targets):
+
+    mkdir -p logs/slurm
+    snakemake -s Snakefile --profile profiles/slurm
+
+    # edit profiles/slurm/config.yaml first: set slurm_account / slurm_partition.
+    # --jobs there caps how many replicate jobs are queued at once.
+
+On Slurm (Snakemake ≥ 8, executor plugin) — resource names are identical:
+
+    pip install snakemake-executor-plugin-slurm
+    snakemake -s Snakefile --executor slurm --jobs 200 \
+        --default-resources slurm_account=ACCT slurm_partition=PART \
+        --retries 2 --latency-wait 60 --rerun-incomplete
+
+Notes
+-----
+* Each replicate needs numpy + scipy + h5py and the two sibling repos PRScsx_mt
+  and PRScsx. Point `python` (config) at an interpreter that has the packages,
+  and either export PRSCSX_MT_DIR / PRSCSX_DIR before submitting or set
+  prscsx_mt_dir / prscsx_dir in config.yaml (the latter is exported into every
+  job, which is robust on clusters that don't propagate the submit environment).
+* Per-replicate runtime and memory scale with the scenario's n_trait × n_pop and
+  with the retry attempt (a job that times out is retried with more time/RAM).
+* `collect` and `all` are local rules — they run on the submit node, not Slurm.
+"""
+
+import json
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Paths — everything is anchored to this Snakefile's directory (sim_sweep/),
+# so outputs land here regardless of where snakemake is invoked from.
+# ---------------------------------------------------------------------------
+SWEEP_DIR = Path(workflow.basedir)
+
+configfile: str(SWEEP_DIR / "config.yaml")
+
+SCENARIOS_FILE = config.get("scenarios_file") or str(SWEEP_DIR / "scenarios.json")
+RESULTS_DIR    = config.get("results_dir")    or str(SWEEP_DIR / "results")
+RUNNER         = str(SWEEP_DIR / "run_one_replicate.py")
+COLLECTOR      = str(SWEEP_DIR / "collect_results.py")
+
+ALL_RESULTS = str(SWEEP_DIR / "all_results.csv")
+DELTAS      = str(SWEEP_DIR / "deltas.csv")     # collect_results.py writes this
+                                                # next to all_results.csv
+
+# ---------------------------------------------------------------------------
+# Sweep grid: scenarios × seeds
+# ---------------------------------------------------------------------------
+with open(SCENARIOS_FILE) as _fh:
+    _SCENARIOS = json.load(_fh)
+
+SCENARIO_META = {s["name"]: s for s in _SCENARIOS}
+SCENARIOS     = list(SCENARIO_META)
+
+N_REPLICATES = int(config.get("n_replicates", 30))
+SEEDS        = list(range(1, N_REPLICATES + 1))
+
+RESULT_CSVS = expand(
+    RESULTS_DIR + "/{scenario}/seed_{seed}/result.csv",
+    scenario=SCENARIOS,
+    seed=SEEDS,
+)
+
+# ---------------------------------------------------------------------------
+# Per-replicate resource scaling
+#
+# Cost tracks the number of MCMC runs: 2 phi arms × (one PRS-CSx per trait +
+# one joint PRS-CSx-MT) over n_pop populations, i.e. it grows with n_trait×n_pop.
+# `attempt` escalates a retried job (e.g. one that hit the time limit).
+# ---------------------------------------------------------------------------
+def _units(scenario):
+    s = SCENARIO_META[scenario]
+    return max(1, int(s.get("n_trait", 2))) * max(1, int(s.get("n_pop", 2)))
+
+def replicate_runtime(wildcards, attempt):        # minutes
+    units = _units(wildcards.scenario)
+    base  = int(config.get("runtime_base_min", 30))
+    per   = int(config.get("runtime_per_unit_min", 15))
+    return (base + per * units) * attempt
+
+def replicate_mem(wildcards, attempt):            # MB
+    units = _units(wildcards.scenario)
+    base  = int(config.get("mem_base_mb", 4000))
+    per   = int(config.get("mem_per_unit_mb", 1000))
+    return (base + per * units) * attempt
+
+# ---------------------------------------------------------------------------
+# Environment prefix injected into every replicate shell.
+#   * pin BLAS/OMP threads to 1 (parallelism is across jobs, not within one)
+#   * optionally export the sibling-repo locations
+# ---------------------------------------------------------------------------
+def _env_prefix():
+    lines = [
+        "export MKL_NUM_THREADS=1",
+        "export OPENBLAS_NUM_THREADS=1",
+        "export NUMEXPR_NUM_THREADS=1",
+        "export OMP_NUM_THREADS=1",
+    ]
+    if config.get("prscsx_mt_dir"):
+        lines.append('export PRSCSX_MT_DIR="%s"' % config["prscsx_mt_dir"])
+    if config.get("prscsx_dir"):
+        lines.append('export PRSCSX_DIR="%s"' % config["prscsx_dir"])
+    return "\n".join(lines)
+
+ENV_PREFIX = _env_prefix()
+PYTHON     = config.get("python", "python3")
+
+# collect/all touch tiny files — keep them off the scheduler.
+localrules: all, collect
+
+
+rule all:
+    input:
+        ALL_RESULTS,
+        DELTAS,
+
+
+# One (scenario, seed) replicate → its tidy result.csv.
+# The runner also writes data/ and per-method posterior files alongside it;
+# only result.csv is tracked as the rule output.
+rule run_replicate:
+    output:
+        RESULTS_DIR + "/{scenario}/seed_{seed}/result.csv",
+    log:
+        RESULTS_DIR + "/{scenario}/seed_{seed}/run.log",
+    benchmark:
+        RESULTS_DIR + "/{scenario}/seed_{seed}/benchmark.tsv"
+    params:
+        runner         = RUNNER,
+        scenarios_file = SCENARIOS_FILE,
+        results_dir    = RESULTS_DIR,
+        python         = PYTHON,
+        env_prefix     = ENV_PREFIX,
+        n_snp          = config.get("n_snp", 2000),
+        n_iter         = config.get("n_iter", 1000),
+        n_burnin       = config.get("n_burnin", 500),
+    threads: 1
+    resources:
+        runtime       = replicate_runtime,   # minutes
+        mem_mb        = replicate_mem,        # MB
+        cpus_per_task = 1,
+    shell:
+        r"""
+        {params.env_prefix}
+
+        {params.python} "{params.runner}" \
+            --scenario_name  {wildcards.scenario} \
+            --seed           {wildcards.seed} \
+            --scenarios_file "{params.scenarios_file}" \
+            --out_dir        "{params.results_dir}" \
+            --n_snp          {params.n_snp} \
+            --n_iter         {params.n_iter} \
+            --n_burnin       {params.n_burnin} \
+            > "{log}" 2>&1
+        """
+
+
+# Aggregate every replicate into all_results.csv + deltas.csv and print the
+# rg × frac decomposition summary. Runs locally once all replicates exist.
+rule collect:
+    input:
+        RESULT_CSVS,
+    output:
+        all_results = ALL_RESULTS,
+        deltas      = DELTAS,
+    params:
+        collector   = COLLECTOR,
+        results_dir = RESULTS_DIR,
+        python      = PYTHON,
+    shell:
+        '{params.python} "{params.collector}" "{params.results_dir}" "{output.all_results}"'

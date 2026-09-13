@@ -80,6 +80,10 @@ def optional_args():
         args.append("--n_overlap=" + ",".join(map(str, config["n_overlap"])))
     if config.get("chromosomes") is not None:
         args.append("--chrom=" + ",".join(map(str, config["chromosomes"])))
+    # Pass a base seed so the n_jobs worker pool seeds each chromosome (seed+chrom)
+    # instead of running unseeded — otherwise forked workers share one RNG stream.
+    if config.get("seed") is not None:
+        args.append(f"--seed={config['seed']}")
     args.append(f"--n_jobs={config['n_jobs']}")
     return " ".join(args)
 
@@ -110,10 +114,12 @@ rule download_snpinfo:
 # {REF_DIR}/ldblk_1kg_{pop_lower}/ (lowercase, as expected by PRScsx_mt).
 rule download_ldblk:
     output:
-        sentinel=f"{REF_DIR}/.ldblk_{{pop}}_done",
+        # NB: the wildcard is named `population`, not `pop` — Snakemake reserves
+        # `pop` (a list/dict method name) and rejects it as a wildcard name.
+        sentinel=f"{REF_DIR}/.ldblk_{{population}}_done",
     params:
-        url=lambda wc: LDBLK_URLS[wc.pop],
-        pop_lower=lambda wc: wc.pop.lower(),
+        url=lambda wc: LDBLK_URLS[wc.population],
+        pop_lower=lambda wc: wc.population.lower(),
         ref_dir=REF_DIR,
     shell:
         """
@@ -176,7 +182,7 @@ rule format_sumstats:
 rule run_prscsx_mt:
     input:
         snpinfo=f"{REF_DIR}/snpinfo_mult_1kg_hm3",
-        ldblk=expand(f"{REF_DIR}/.ldblk_{{pop}}_done", pop=POPS),
+        ldblk=expand(f"{REF_DIR}/.ldblk_{{population}}_done", population=POPS),
         bim=f"{BIM_PFX}.bim",
         sumstats=expand(
             f"{FMT_DIR}/{{trait}}_{{pop}}.txt", trait=TRAITS, pop=POPS

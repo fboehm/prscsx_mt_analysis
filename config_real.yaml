@@ -72,6 +72,11 @@ n_iter:   null
 n_burnin: null
 thin: 5
 
+# seed: base RNG seed. Each chromosome is seeded with seed+chrom, so the n_jobs
+#   worker pool stays independent AND the run is reproducible. Set to null for a
+#   fresh, non-reproducible run (workers still get independent OS-entropy seeds).
+seed: 2026
+
 # --- Chromosomes ---
 # null → all 22 autosomes.  Set to e.g. [22] for a fast test run.
 chromosomes: null
