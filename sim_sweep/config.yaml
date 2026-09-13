@@ -21,8 +21,8 @@ python: "python3"
 # to this repo) or on PRSCSX_MT_DIR / PRSCSX_DIR already in the environment.
 # Set them here to have the Snakefile export them into every job — robust on
 # clusters that do not forward the submit-node environment to compute nodes.
-prscsx_mt_dir: ""       # e.g. /shared/project/PRScsx_mt
-prscsx_dir:    ""       # e.g. /shared/project/PRScsx
+prscsx_mt_dir: "/scratch/jacks.local/frederick.boehm/prscsx-mt-project/PRScsx_mt"       # e.g. /shared/project/PRScsx_mt
+prscsx_dir:    "/scratch/jacks.local/frederick.boehm/prscsx-mt-project/PRScsx"       # e.g. /shared/project/PRScsx
 
 # ── Slurm resource scaling ───────────────────────────────────────────────────
 # Effective request = base + per_unit × (n_trait × n_pop), then × retry attempt.

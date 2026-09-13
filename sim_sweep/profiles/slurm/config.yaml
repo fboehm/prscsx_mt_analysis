@@ -39,7 +39,7 @@ cluster: >-
 # overrides runtime and mem_mb with scenario-scaled functions; the account and
 # partition below apply to every submitted job.
 default-resources:
-  - "slurm_account='CHANGE_ME'"
-  - "slurm_partition='CHANGE_ME'"
+  - "slurm_account='math'"
+  - "slurm_partition='compute'"
   - "runtime=180"
   - "mem_mb=8000"
