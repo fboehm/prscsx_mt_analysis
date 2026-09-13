@@ -14,7 +14,7 @@ n_burnin: 500
 # Must have numpy + scipy + h5py. Locally that is /usr/bin/python3.12 (the
 # default conda python3 lacks scipy). On the cluster, set this to the interpreter
 # from your module/venv, e.g. after `module load python/3.11`.
-python: "python3"
+python: "/mmfs1/home/jacks.local/frederick.boehm/.conda/envs/prscsx/bin/python"
 
 # ── sibling method/baseline repos ────────────────────────────────────────────
 # Leave blank to rely on the default sibling layout (PRScsx_mt/ and PRScsx/ next

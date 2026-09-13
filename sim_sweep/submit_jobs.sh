@@ -25,10 +25,13 @@
 # them if `python3` on the compute nodes does not (locally that is python3.12,
 # NOT the default conda python3). Example:
 #   export PYTHON=/usr/bin/python3.12
-PYTHON="${PYTHON:-python3}"
+PYTHON="${PYTHON:-/mmfs1/home/jacks.local/frederick.boehm/.conda/envs/prscsx/bin/python}"
 
 # ── resolve paths ─────────────────────────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Slurm runs a *copy* of this script from its spool dir, so ${BASH_SOURCE[0]}
+# doesn't point here — use the submit directory (where `sbatch` was run) instead,
+# falling back to the script location when run outside Slurm.
+SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 JOB_LIST="${SCRIPT_DIR}/job_list.txt"
 RESULTS_DIR="${SCRIPT_DIR}/results"
 
