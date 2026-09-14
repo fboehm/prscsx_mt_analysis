@@ -7,7 +7,7 @@
 #     snakemake -s Snakefile --profile profiles/slurm
 #
 # slurm_partition / slurm_account below are set for the SDSU "jacks" cluster
-# (partition 'compute', account '337t79'); change them for a different cluster.
+# (partitions 'compute,quickq', account '337t79'); change them for a different cluster.
 # Per-replicate runtime/mem/cpus come from the Snakefile and override the
 # fallbacks here; the account/partition apply to every job.
 
@@ -15,7 +15,7 @@ executor: slurm
 jobs: 200                 # max jobs queued at once (throttles submission)
 
 default-resources:
-  - "slurm_partition='compute'"
+  - "slurm_partition='compute,quickq'"
   - "slurm_account='337t79'"
   - "runtime=180"          # minutes (fallback; run_replicate sets its own per scenario)
   - "mem_mb=8000"
