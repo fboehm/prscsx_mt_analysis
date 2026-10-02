@@ -15,6 +15,8 @@ sim_sweep/logs/
 sim_sweep/job_list*.txt
 sim_sweep/all_results.csv
 sim_sweep/deltas.csv
+# PRSxtra per-replicate tree (commit sim_sweep/all_results_prsxtra.csv + analysis_prsxtra/ instead)
+sim_sweep/results_prsxtra/
 
 # Snakemake bookkeeping
 .snakemake/

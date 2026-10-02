@@ -12,7 +12,10 @@ retries each (scenario, seed) replicate individually, then collects everything.
                   → results/{scenario}/seed_{seed}/result.csv
 
     rule prsxtra                (separate target — PRS-CSx-MT vs PRSxtra)
-      └── collect_prsxtra       (compare_prsxtra.py --collect → all_results_prsxtra.csv)
+      ├── analyze_prsxtra       (analyze_prsxtra.py → analysis_prsxtra/report.md,
+      │                          CSV tables, figures)
+      └── collect_prsxtra       (compare_prsxtra.py --collect → all_results_prsxtra.csv,
+            │                    next to all_results.csv)
             └── run_prsxtra      (compare_prsxtra.py, one job per scenario×seed×phi)
                   → results_prsxtra/{scenario}/seed_{seed}/result_prsxtra_phi{phi}.csv
 
@@ -80,6 +83,7 @@ RESULTS_DIR    = config.get("results_dir")    or str(SWEEP_DIR / "results")
 RUNNER         = str(SWEEP_DIR / "run_one_replicate.py")
 COLLECTOR      = str(SWEEP_DIR / "collect_results.py")
 PRSXTRA_RUNNER = str(SWEEP_DIR / "compare_prsxtra.py")
+PRSXTRA_ANALYZER = str(SWEEP_DIR / "analyze_prsxtra.py")
 PRSXTRA_DIR    = config.get("prsxtra_results_dir") or str(SWEEP_DIR / "results_prsxtra")
 
 ALL_RESULTS = str(SWEEP_DIR / "all_results.csv")
@@ -119,7 +123,11 @@ PRSXTRA_CSVS = expand(
     seed=SEEDS,
     phi=PRSXTRA_PHIS,
 )
-PRSXTRA_ALL = PRSXTRA_DIR + "/all_results_prsxtra.csv"
+# Small, committable outputs live in sim_sweep/ beside all_results.csv; the
+# large per-replicate tree (PRSXTRA_DIR) stays out of git.
+PRSXTRA_ALL      = str(SWEEP_DIR / "all_results_prsxtra.csv")
+PRSXTRA_ANALYSIS = str(SWEEP_DIR / "analysis_prsxtra")
+PRSXTRA_REPORT   = PRSXTRA_ANALYSIS + "/report.md"
 
 # ---------------------------------------------------------------------------
 # Per-replicate resource scaling
@@ -166,7 +174,7 @@ ENV_PREFIX = _env_prefix()
 PYTHON     = config.get("python", "python3")
 
 # collect/all touch tiny files — keep them off the scheduler.
-localrules: all, collect, prsxtra, collect_prsxtra
+localrules: all, collect, prsxtra, collect_prsxtra, analyze_prsxtra
 
 
 rule all:
@@ -246,6 +254,7 @@ rule collect:
 rule prsxtra:
     input:
         PRSXTRA_ALL,
+        PRSXTRA_REPORT,
 
 
 # One (scenario, seed, phi) replicate. Per phi value it runs 2 × n_trait PRS-CSx
@@ -313,4 +322,35 @@ rule collect_prsxtra:
         results_dir = PRSXTRA_DIR,
         python      = PYTHON,
     shell:
-        '{params.python} "{params.runner}" --collect "{params.results_dir}" > "{output.summary}"'
+        '{params.python} "{params.runner}" --collect "{params.results_dir}"'
+        ' --collect_out "{output.all_results}" > "{output.summary}"'
+
+
+# Tables (method_summary / contrasts_*.csv), report.md and figures under
+# sim_sweep/analysis_prsxtra/. Reads the collected CSV, so it reruns whenever
+# collect_prsxtra does. The outputs are small — commit these, not results_prsxtra/.
+# Re-run just this step:  snakemake ... -R analyze_prsxtra prsxtra
+rule analyze_prsxtra:
+    input:
+        all_results = PRSXTRA_ALL,
+        analyzer    = PRSXTRA_ANALYZER,
+    output:
+        report = PRSXTRA_REPORT,
+    params:
+        python         = PYTHON,
+        analysis_dir   = PRSXTRA_ANALYSIS,
+        scenarios_file = SCENARIOS_FILE,
+        n_seeds        = N_REPLICATES,
+        groups         = PRSXTRA_GROUPS,
+    log:
+        PRSXTRA_ANALYSIS + "/analyze.log",
+    run:
+        # one report per scenario group; the first group writes analysis_prsxtra/,
+        # any further group writes analysis_prsxtra_<group>/
+        for i, g in enumerate(params.groups):
+            out = params.analysis_dir + ("" if i == 0 else "_" + g)
+            shell(
+                '{params.python} "{input.analyzer}" "{input.all_results}"'
+                ' --group %s --n_seeds {params.n_seeds}'
+                ' --scenarios_file "{params.scenarios_file}" --out_dir "%s"'
+                ' >> "{log}" 2>&1' % (g, out))

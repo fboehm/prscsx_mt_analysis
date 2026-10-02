@@ -42,8 +42,9 @@ the data and the prscsx / prscsx_mt fits match the main sweep):
     python compare_prsxtra.py --scenario_name rgfrac_rg0.4_f0.50 --seed 1 \\
         --out_dir results_prsxtra
 
-Summarize finished replicates:
-    python compare_prsxtra.py --collect results_prsxtra
+Summarize finished replicates (writes RESULTS_DIR/all_results_prsxtra.csv, or
+the --collect_out path):
+    python compare_prsxtra.py --collect results_prsxtra --collect_out all_results_prsxtra.csv
 """
 
 import argparse
@@ -338,14 +339,14 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
 
 
 # ── collect / summarize ──────────────────────────────────────────────────────
-def collect(results_dir, ref_method='prsxtra'):
+def collect(results_dir, out=None, ref_method='prsxtra'):
     rows = []
     for path in sorted(glob.glob(os.path.join(results_dir, '*', 'seed_*', 'result_prsxtra*.csv'))):
         with open(path) as fh:
             rows.extend(csv.DictReader(fh))
     if not rows:
         sys.exit('No result_prsxtra*.csv files under %s' % results_dir)
-    out = os.path.join(results_dir, 'all_results_prsxtra.csv')
+    out = out or os.path.join(results_dir, 'all_results_prsxtra.csv')
     with open(out, 'w', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=_RESULT_FIELDS)
         w.writeheader()
@@ -381,6 +382,9 @@ def _parse_args():
     p = argparse.ArgumentParser(description='PRS-CSx-MT vs PRSxtra on one simulated replicate.')
     p.add_argument('--collect', metavar='RESULTS_DIR',
                    help='Summarize finished replicates under RESULTS_DIR and exit.')
+    p.add_argument('--collect_out', metavar='CSV',
+                   help='Where --collect writes the combined CSV '
+                        '(default RESULTS_DIR/all_results_prsxtra.csv).')
     p.add_argument('--scenario_name')
     p.add_argument('--seed', type=int)
     p.add_argument('--scenarios_file', default=os.path.join(_script_dir, 'scenarios.json'))
@@ -403,7 +407,7 @@ def _parse_args():
 def main():
     args = _parse_args()
     if args.collect:
-        collect(args.collect)
+        collect(args.collect, args.collect_out)
         return
     if args.scenario_name is None or args.seed is None or args.out_dir is None:
         sys.exit('--scenario_name, --seed and --out_dir are required (or use --collect)')
