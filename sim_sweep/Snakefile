@@ -164,6 +164,10 @@ rule run_replicate:
         n_snp          = config.get("n_snp", 2000),
         n_iter         = config.get("n_iter", 1000),
         n_burnin       = config.get("n_burnin", 500),
+        sim_mode       = config.get("sim_mode", "realistic"),
+        n_ref          = config.get("n_ref", 500),
+        n_test         = config.get("n_test", 5000),
+        ld_hetero      = config.get("ld_hetero", 0.15),
     threads: 1
     resources:
         runtime       = replicate_runtime,   # minutes
@@ -181,6 +185,10 @@ rule run_replicate:
             --n_snp          {params.n_snp} \
             --n_iter         {params.n_iter} \
             --n_burnin       {params.n_burnin} \
+            --sim_mode       {params.sim_mode} \
+            --n_ref          {params.n_ref} \
+            --n_test         {params.n_test} \
+            --ld_hetero      {params.ld_hetero} \
             > "{log}" 2>&1
         """
 

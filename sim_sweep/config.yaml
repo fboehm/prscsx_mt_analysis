@@ -10,6 +10,19 @@ n_snp:    2000
 n_iter:   1000
 n_burnin: 500
 
+# ── simulator fidelity ───────────────────────────────────────────────────────
+# 'realistic' : each population gets its own LD; the LD reference handed to
+#               PRS-CSx is a finite, shrunk sample-LD panel (n_ref individuals),
+#               so it is MISMATCHED from the target as on real data; GWAS is
+#               individual-level OLS; and a held-out test set (n_test people per
+#               population) yields out-of-sample prediction accuracy (corr_pred).
+# 'analytic'  : the original simulate_mt path (one shared exact LD used both to
+#               generate data and as the reference; effect-recovery scoring only).
+sim_mode:  realistic
+n_ref:     500          # LD reference-panel individuals per population
+n_test:    5000         # held-out test individuals per population
+ld_hetero: 0.15         # per-population LD divergence (0 => identical LD across pops)
+
 # ── interpreter ──────────────────────────────────────────────────────────────
 # Must have numpy + scipy + h5py. Locally that is /usr/bin/python3.12 (the
 # default conda python3 lacks scipy). On the cluster, set this to the interpreter

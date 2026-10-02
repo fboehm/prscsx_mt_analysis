@@ -21,7 +21,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 FIELDS = [
     'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
-    'method', 'phi_mode', 'phi', 'corr', 'time_s',
+    'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'time_s',
 ]
 
 BASELINE = 'prscsx'          # what MT is compared against for the delta
@@ -65,15 +65,19 @@ def collect(results_dir, out_file):
     return all_rows
 
 
-def pair_deltas(all_rows):
-    """Pair MT vs BASELINE within (scenario,group,rg,frac,pop,trait,phi_mode,seed)."""
-    cells = defaultdict(dict)   # key -> {method: corr}
-    meta  = {}
+def pair_deltas(all_rows, metric='corr'):
+    """Pair MT vs BASELINE within (scenario,group,rg,frac,pop,trait,phi_mode,seed)
+    on the requested metric column ('corr' = effect recovery, 'corr_pred' =
+    out-of-sample prediction). Rows where the metric is blank/absent (e.g.
+    corr_pred under analytic sim_mode) are skipped."""
+    cells = defaultdict(dict)   # key -> {method: value}
     for r in all_rows:
+        raw = r.get(metric, '')
+        if raw is None or raw == '':
+            continue
         key = (r['scenario'], r['group'], r['rg'], r['frac_shared_causal'],
                r['pop'], r['trait'], r['phi_mode'], r['seed'])
-        cells[key][r['method']] = _f(r['corr'])
-        meta[key] = r
+        cells[key][r['method']] = _f(raw)
     deltas = []
     for key, mv in cells.items():
         if BASELINE in mv and MT in mv:
@@ -153,10 +157,25 @@ def main():
     rows = collect(results_dir, out_file)
     if not rows:
         return
-    deltas = pair_deltas(rows)
+
+    # Effect-recovery deltas (always available).
+    deltas = pair_deltas(rows, metric='corr')
     write_deltas(deltas, deltas_file)
+
+    # Out-of-sample prediction deltas (realistic sim_mode only). Written to a
+    # parallel deltas_pred.csv so both metrics can be compared side by side.
+    deltas_pred = pair_deltas(rows, metric='corr_pred')
+    if deltas_pred:
+        pred_file = os.path.join(os.path.dirname(out_file), 'deltas_pred.csv')
+        write_deltas(deltas_pred, pred_file)
+
+    print('\n########## EFFECT-RECOVERY metric (corr of est vs true effects) ##########')
     summarize_grid(deltas)
     summarize_scenarios(deltas)
+    if deltas_pred:
+        print('\n########## OUT-OF-SAMPLE PREDICTION metric (corr of PRS vs y) ##########')
+        summarize_grid(deltas_pred)
+        summarize_scenarios(deltas_pred)
 
 
 if __name__ == '__main__':
