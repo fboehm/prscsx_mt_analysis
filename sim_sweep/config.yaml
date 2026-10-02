@@ -46,6 +46,12 @@ runtime_per_unit_min: 15
 mem_base_mb:          4000
 mem_per_unit_mb:      1000
 
+# ── PRS-CSx-MT vs PRSxtra (target: snakemake ... prsxtra) ─────────────────────
+prsxtra_groups:    [rg_frac_grid]   # scenario groups to run the comparison on
+prsxtra_phi:       [auto]           # add 1e-2 for the fixed-phi arm
+prsxtra_tune_frac: 0.5              # share of the n_test target people used to fit ridge weights
+
 # ── optional path overrides (else derived from the Snakefile location) ───────
 # scenarios_file: "scenarios.json"
 # results_dir:    "results"
+# prsxtra_results_dir: "results_prsxtra"
