@@ -79,8 +79,16 @@ generic `cluster: "sbatch ..."` block.
 
 ## Layout
 
-- `sim_sweep/` — Slurm simulation harness (the main pipeline)
-- `simulate_mt.py`, `simulate_indiv.py` — simulators
+- `sim_sweep/` — Slurm simulation harness (the main pipeline). `config.yaml` sets
+  `sim_mode`: `realistic` (default) or `analytic`.
+- `simulate_realistic.py` — realistic simulator: population-specific LD, a finite
+  **mismatched** LD reference panel (`n_ref`), individual-level OLS GWAS, and a
+  held-out test set (`n_test`) for **out-of-sample** prediction. The sweep scores
+  both effect recovery (`corr`) and PRS prediction (`corr_pred`), the latter
+  aggregated into `deltas_pred.csv`.
+- `simulate_mt.py`, `simulate_indiv.py` — original simulators (`analytic` mode:
+  one shared exact LD used both to generate data and as the reference; effect
+  recovery only)
 - `compare_methods.py`, `run_e2e_test.py`, `run_underrep_rescue.py`, `test_*.py` — standalone comparisons/tests
 - `scripts/`, `Snakefile*`, `config*.yaml` — older Snakemake pipeline (produced the pilot `results/`)
 - `analysis_plan_PRSxtra_MT.md` — All of Us real-data analysis plan

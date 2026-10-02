@@ -11,9 +11,16 @@ retries each (scenario, seed) replicate individually, then collects everything.
             └── run_replicate    (run_one_replicate.py, one job per scenario×seed)
                   → results/{scenario}/seed_{seed}/result.csv
 
+    rule prsxtra                (separate target — PRS-CSx-MT vs PRSxtra)
+      └── collect_prsxtra       (compare_prsxtra.py --collect → all_results_prsxtra.csv)
+            └── run_prsxtra      (compare_prsxtra.py, one job per scenario×seed×phi)
+                  → results_prsxtra/{scenario}/seed_{seed}/result_prsxtra_phi{phi}.csv
+
 Scenarios come from scenarios.json (same file the manual harness uses); seeds
-are 1..n_replicates. With the shipped scenarios.json (53 scenarios) and the
-default 30 replicates that is 1590 replicate jobs.
+are 1..n_replicates. With the shipped scenarios.json (49 scenarios) and the
+default 30 replicates that is 1470 replicate jobs. The PRSxtra comparison runs
+only the prsxtra_groups scenarios (default: the 25-scenario rg_frac_grid), once
+per value in prsxtra_phi: 750 jobs per phi value.
 
 Run it
 ------
@@ -28,6 +35,10 @@ Local (laptop / one node), 8 cores:
 Dry run (prints the DAG, executes nothing — good first check):
 
     snakemake -s Snakefile -n
+
+PRS-CSx-MT vs PRSxtra comparison only (does not touch the main sweep):
+
+    snakemake -s Snakefile --profile profiles/slurm prsxtra
 
 On Slurm (Snakemake 8+, the version profiles/slurm targets):
 
@@ -68,6 +79,8 @@ SCENARIOS_FILE = config.get("scenarios_file") or str(SWEEP_DIR / "scenarios.json
 RESULTS_DIR    = config.get("results_dir")    or str(SWEEP_DIR / "results")
 RUNNER         = str(SWEEP_DIR / "run_one_replicate.py")
 COLLECTOR      = str(SWEEP_DIR / "collect_results.py")
+PRSXTRA_RUNNER = str(SWEEP_DIR / "compare_prsxtra.py")
+PRSXTRA_DIR    = config.get("prsxtra_results_dir") or str(SWEEP_DIR / "results_prsxtra")
 
 ALL_RESULTS = str(SWEEP_DIR / "all_results.csv")
 DELTAS      = str(SWEEP_DIR / "deltas.csv")     # collect_results.py writes this
@@ -90,6 +103,23 @@ RESULT_CSVS = expand(
     scenario=SCENARIOS,
     seed=SEEDS,
 )
+
+# PRS-CSx-MT vs PRSxtra grid: scenarios in prsxtra_groups × seeds × phi values.
+# phi tags match compare_prsxtra.py's output names ('auto', or '%g' of the
+# number — YAML may hand 1e-2 over as a string, hence the float()).
+PRSXTRA_GROUPS    = config.get("prsxtra_groups", ["rg_frac_grid"])
+PRSXTRA_SCENARIOS = [n for n, s in SCENARIO_META.items()
+                     if s.get("group") in PRSXTRA_GROUPS]
+PRSXTRA_PHIS      = ["auto" if str(p) == "auto" else "%g" % float(p)
+                     for p in config.get("prsxtra_phi", ["auto"])]
+
+PRSXTRA_CSVS = expand(
+    PRSXTRA_DIR + "/{scenario}/seed_{seed}/result_prsxtra_phi{phi}.csv",
+    scenario=PRSXTRA_SCENARIOS,
+    seed=SEEDS,
+    phi=PRSXTRA_PHIS,
+)
+PRSXTRA_ALL = PRSXTRA_DIR + "/all_results_prsxtra.csv"
 
 # ---------------------------------------------------------------------------
 # Per-replicate resource scaling
@@ -136,7 +166,7 @@ ENV_PREFIX = _env_prefix()
 PYTHON     = config.get("python", "python3")
 
 # collect/all touch tiny files — keep them off the scheduler.
-localrules: all, collect
+localrules: all, collect, prsxtra, collect_prsxtra
 
 
 rule all:
@@ -164,6 +194,10 @@ rule run_replicate:
         n_snp          = config.get("n_snp", 2000),
         n_iter         = config.get("n_iter", 1000),
         n_burnin       = config.get("n_burnin", 500),
+        sim_mode       = config.get("sim_mode", "realistic"),
+        n_ref          = config.get("n_ref", 500),
+        n_test         = config.get("n_test", 5000),
+        ld_hetero      = config.get("ld_hetero", 0.15),
     threads: 1
     resources:
         runtime       = replicate_runtime,   # minutes
@@ -181,6 +215,10 @@ rule run_replicate:
             --n_snp          {params.n_snp} \
             --n_iter         {params.n_iter} \
             --n_burnin       {params.n_burnin} \
+            --sim_mode       {params.sim_mode} \
+            --n_ref          {params.n_ref} \
+            --n_test         {params.n_test} \
+            --ld_hetero      {params.ld_hetero} \
             > "{log}" 2>&1
         """
 
@@ -199,3 +237,80 @@ rule collect:
         python      = PYTHON,
     shell:
         '{params.python} "{params.collector}" "{params.results_dir}" "{output.all_results}"'
+
+
+# ---------------------------------------------------------------------------
+# PRS-CSx-MT vs PRSxtra (compare_prsxtra.py). Not part of `all` — request it
+# explicitly:  snakemake --profile profiles/slurm prsxtra
+# ---------------------------------------------------------------------------
+rule prsxtra:
+    input:
+        PRSXTRA_ALL,
+
+
+# One (scenario, seed, phi) replicate. Per phi value it runs 2 × n_trait PRS-CSx
+# fits (raw GWAS and MTAG) + one PRS-CSx-MT fit — no more MCMC than a main-sweep
+# replicate (2 phi arms × (n_trait + 1)), so it reuses the same resource scaling.
+rule run_prsxtra:
+    output:
+        PRSXTRA_DIR + "/{scenario}/seed_{seed}/result_prsxtra_phi{phi}.csv",
+    log:
+        PRSXTRA_DIR + "/{scenario}/seed_{seed}/run_phi{phi}.log",
+    benchmark:
+        PRSXTRA_DIR + "/{scenario}/seed_{seed}/benchmark_phi{phi}.tsv"
+    wildcard_constraints:
+        seed = r"\d+",
+        phi  = r"auto|[0-9.eE+-]+",
+    params:
+        runner         = PRSXTRA_RUNNER,
+        scenarios_file = SCENARIOS_FILE,
+        results_dir    = PRSXTRA_DIR,
+        python         = PYTHON,
+        env_prefix     = ENV_PREFIX,
+        n_snp          = config.get("n_snp", 2000),
+        n_iter         = config.get("n_iter", 1000),
+        n_burnin       = config.get("n_burnin", 500),
+        n_ref          = config.get("n_ref", 500),
+        n_test         = config.get("n_test", 5000),
+        ld_hetero      = config.get("ld_hetero", 0.15),
+        tune_frac      = config.get("prsxtra_tune_frac", 0.5),
+    threads: 1
+    resources:
+        runtime       = replicate_runtime,   # minutes
+        mem_mb        = replicate_mem,        # MB
+        cpus_per_task = 1,
+    shell:
+        r"""
+        {params.env_prefix}
+
+        {params.python} "{params.runner}" \
+            --scenario_name  {wildcards.scenario} \
+            --seed           {wildcards.seed} \
+            --phi            {wildcards.phi} \
+            --scenarios_file "{params.scenarios_file}" \
+            --out_dir        "{params.results_dir}" \
+            --n_snp          {params.n_snp} \
+            --n_iter         {params.n_iter} \
+            --n_burnin       {params.n_burnin} \
+            --n_ref          {params.n_ref} \
+            --n_test         {params.n_test} \
+            --ld_hetero      {params.ld_hetero} \
+            --tune_frac      {params.tune_frac} \
+            > "{log}" 2>&1
+        """
+
+
+# Aggregate every PRSxtra replicate into all_results_prsxtra.csv and write the
+# per-cell summary (method means + paired diffs vs prsxtra) to summary_prsxtra.txt.
+rule collect_prsxtra:
+    input:
+        PRSXTRA_CSVS,
+    output:
+        all_results = PRSXTRA_ALL,
+        summary     = PRSXTRA_DIR + "/summary_prsxtra.txt",
+    params:
+        runner      = PRSXTRA_RUNNER,
+        results_dir = PRSXTRA_DIR,
+        python      = PYTHON,
+    shell:
+        '{params.python} "{params.runner}" --collect "{params.results_dir}" > "{output.summary}"'

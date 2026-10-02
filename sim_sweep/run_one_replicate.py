@@ -46,6 +46,7 @@ sys.path.insert(0, _mt_dir)      # mcmc_gtb_mt.py, parse_genet_mt.py (method)
 sys.path.insert(0, _prscsx_dir)  # original PRS-CSx modules (loaded via _load below)
 
 import simulate_mt
+import simulate_realistic
 import mcmc_gtb_mt
 import parse_genet_mt
 
@@ -81,8 +82,13 @@ _PHI_MODES = (('auto', None), ('fixed', _FIXED_PHI))
 _RESULT_FIELDS = [
     'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
-    'method', 'phi_mode', 'phi', 'corr', 'time_s',
+    'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'time_s',
 ]
+# `corr`      : effect-recovery — corr(estimated posterior effects, true effects)
+#               (kept for continuity with the analytic sweep).
+# `corr_pred` : out-of-sample prediction — corr(PRS, phenotype) in a held-out
+#               target-ancestry test set. Only populated in sim_mode='realistic'
+#               (empty otherwise, since the analytic simulator has no test set).
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -226,31 +232,34 @@ def _run_prscsx_mt(ref_dir, bim_prefix, sst_files_dict, n_gwas_dict,
 
 
 # ── evaluation ────────────────────────────────────────────────────────────────
+def _find_posterior(out_dir, out_name, pop_label, tt, is_mt):
+    """Return the single matching PRS-CSx posterior-effect file, or None.
+
+    Globs rather than assuming 'phiauto' in the name, so it works for both auto
+    and fixed-phi runs (whose filenames encode phi differently, e.g. _phiauto_
+    vs _phi1e-02_)."""
+    import glob as _glob
+    if is_mt:
+        pat = '%s_%s_trait%d_pst_eff_*_chr1.txt' % (out_name, pop_label, tt)
+        matches = [m for m in _glob.glob(os.path.join(out_dir, pat))
+                   if 'trait%d' % tt in os.path.basename(m)]
+    else:
+        pat = '%s_%s_pst_eff_*_chr1.txt' % (out_name, pop_label)
+        matches = [m for m in _glob.glob(os.path.join(out_dir, pat))
+                   if 'trait' not in os.path.basename(m)]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _evaluate(out_dir, out_name, data_dir, pop_labels, n_trait, is_mt,
               single_trait_idx=None):
-    """Return {(pp, tt): pearson_r} of estimated vs true effects.
-
-    Globs the posterior-effect file rather than assuming 'phiauto' in the name,
-    so it works for both auto and fixed-phi runs (whose filenames encode phi
-    differently, e.g. _phiauto_ vs _phi1e-02_)."""
-    import glob as _glob
+    """Return {(pp, tt): pearson_r} of estimated vs true effects (effect recovery)."""
     results = {}
-    n_pop = len(pop_labels)
-    for pp in range(n_pop):
+    for pp in range(len(pop_labels)):
         for tt in range(n_trait):
-            if is_mt:
-                pat = '%s_%s_trait%d_pst_eff_*_chr1.txt' % (out_name, pop_labels[pp], tt)
-                matches = [m for m in _glob.glob(os.path.join(out_dir, pat))
-                           if 'trait%d' % tt in os.path.basename(m)]
-            else:
-                pat = '%s_%s_pst_eff_*_chr1.txt' % (out_name, pop_labels[pp])
-                matches = [m for m in _glob.glob(os.path.join(out_dir, pat))
-                           if 'trait' not in os.path.basename(m)]
-
-            if len(matches) != 1:
+            path = _find_posterior(out_dir, out_name, pop_labels[pp], tt, is_mt)
+            if path is None:
                 continue
-
-            beta_est, snps_est = _read_effects(matches[0])
+            beta_est, snps_est = _read_effects(path)
             true_tt = single_trait_idx if single_trait_idx is not None else tt
             true_map = _read_true_effects(
                 os.path.join(data_dir,
@@ -260,9 +269,67 @@ def _evaluate(out_dir, out_name, data_dir, pop_labels, n_trait, is_mt,
     return results
 
 
+def _load_test_data(data_dir, pop_labels):
+    """Load the held-out test set written by simulate_realistic. Returns a dict
+    {'name2col', 'geno': {pop: X}, 'pheno': {pop: Y}} or None if absent (i.e.
+    analytic sim_mode, which writes no test set)."""
+    snps_path = os.path.join(data_dir, 'test_snps.txt')
+    if not os.path.isfile(snps_path):
+        return None
+    with open(snps_path) as fh:
+        snps = [ln.strip() for ln in fh if ln.strip()]
+    name2col = {s: i for i, s in enumerate(snps)}
+    geno, pheno = {}, {}
+    for pop in pop_labels:
+        gp = os.path.join(data_dir, 'test_geno_%s.npy' % pop)
+        pp_ = os.path.join(data_dir, 'test_pheno_%s.npy' % pop)
+        if os.path.isfile(gp) and os.path.isfile(pp_):
+            geno[pop] = np.load(gp)
+            pheno[pop] = np.load(pp_)
+    return {'name2col': name2col, 'geno': geno, 'pheno': pheno}
+
+
+def _evaluate_prediction(out_dir, out_name, pop_labels, n_trait, is_mt,
+                         test_data, single_trait_idx=None):
+    """Return {(pp, tt): corr(PRS, y)} on the held-out test set.
+
+    PRS = X_test @ beta_est; scored against the test phenotype for the trait. The
+    real-world PRS accuracy, bounded by sqrt(h2) even for a perfect estimate."""
+    results = {}
+    if test_data is None:
+        return results
+    name2col = test_data['name2col']
+    for pp in range(len(pop_labels)):
+        pop = pop_labels[pp]
+        if pop not in test_data['geno']:
+            continue
+        X = test_data['geno'][pop]
+        Y = test_data['pheno'][pop]
+        for tt in range(n_trait):
+            path = _find_posterior(out_dir, out_name, pop, tt, is_mt)
+            if path is None:
+                continue
+            beta_est, snps_est = _read_effects(path)
+            cols = np.array([name2col.get(s, -1) for s in snps_est])
+            keep = cols >= 0
+            if not keep.any():
+                continue
+            prs = X[:, cols[keep]] @ beta_est[keep]
+            true_tt = single_trait_idx if single_trait_idx is not None else tt
+            results[(pp, tt)] = _pearson(prs, Y[:, true_tt])
+    return results
+
+
 # ── main replicate runner ─────────────────────────────────────────────────────
-def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
-    """Run a single (scenario, seed) pair and return a list of result rows."""
+def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
+                  sim_mode='realistic', n_ref=500, n_test=5000, ld_hetero=0.15):
+    """Run a single (scenario, seed) pair and return a list of result rows.
+
+    sim_mode : 'realistic' (population-specific LD, a finite/mismatched LD
+        reference panel, individual-level OLS GWAS, and a held-out test set for
+        out-of-sample prediction) or 'analytic' (the original simulate_mt path:
+        one shared exact LD used both to generate data and as the reference, and
+        effect-recovery scoring only)."""
     name      = scenario['name']
     n_pop     = scenario['n_pop']
     n_trait   = scenario['n_trait']
@@ -287,12 +354,24 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
     os.makedirs(data_dir, exist_ok=True)
 
     # ── simulate once; the same data feeds every phi arm and method ───────────
-    simulate_mt.simulate_mt(
-        n_snp=n_snp, n_causal=n_causal, n_pop=n_pop, n_trait=n_trait,
-        n_gwas=n_gwas_list, block_size=_BLOCK_SIZE, ld_decay=0.5,
-        rg=rg, frac_shared_causal=frac, rho_pop=rho_pop, h2=h2,
-        rho_pheno=rho_pheno, n_overlap=n_overlap,
-        pop=pop_labels, out_dir=data_dir, chrom=1, seed=_derive_seed(seed, 0))
+    if sim_mode == 'realistic':
+        simulate_realistic.simulate_realistic(
+            n_snp=n_snp, n_causal=n_causal, n_pop=n_pop, n_trait=n_trait,
+            n_gwas=n_gwas_list, block_size=_BLOCK_SIZE, ld_decay=0.5,
+            rg=rg, frac_shared_causal=frac, rho_pop=rho_pop, h2=h2,
+            rho_pheno=rho_pheno, n_overlap=n_overlap,
+            n_ref=n_ref, n_test=n_test, ld_hetero=ld_hetero,
+            pop=pop_labels, out_dir=data_dir, chrom=1, seed=_derive_seed(seed, 0))
+    else:
+        simulate_mt.simulate_mt(
+            n_snp=n_snp, n_causal=n_causal, n_pop=n_pop, n_trait=n_trait,
+            n_gwas=n_gwas_list, block_size=_BLOCK_SIZE, ld_decay=0.5,
+            rg=rg, frac_shared_causal=frac, rho_pop=rho_pop, h2=h2,
+            rho_pheno=rho_pheno, n_overlap=n_overlap,
+            pop=pop_labels, out_dir=data_dir, chrom=1, seed=_derive_seed(seed, 0))
+
+    # Held-out test set (present only in realistic mode) for prediction scoring.
+    test_data = _load_test_data(data_dir, pop_labels)
 
     n_gwas_dict = {(pp, tt): n_gwas_list[pp][tt]
                    for pp in range(n_pop) for tt in range(n_trait)}
@@ -311,6 +390,7 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
         # ── baseline: PRS-CSx (cross-ancestry, single-trait), once per trait ──
         t0 = time.time()
         prscsx_corr = {}
+        prscsx_pred = {}
         for tt in range(n_trait):
             sst_files_t = [
                 os.path.join(data_dir, 'sst_%s_trait%d.txt' % (pop_labels[pp], tt))
@@ -324,6 +404,11 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
                             n_trait=1, is_mt=False, single_trait_idx=tt)
             for (pp, _), corr in res.items():
                 prscsx_corr[(pp, tt)] = corr
+            pred = _evaluate_prediction(out_st, 'prs_t%d' % tt, pop_labels,
+                                        n_trait=1, is_mt=False,
+                                        test_data=test_data, single_trait_idx=tt)
+            for (pp, _), c in pred.items():
+                prscsx_pred[(pp, tt)] = c
         time_st = time.time() - t0
 
         # ── PRS-CSx-MT (cross-trait + cross-ancestry, jointly) ────────────────
@@ -334,6 +419,9 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
                        _derive_seed(seed, 2), phi=phi)
         mt_corr = _evaluate(out_mt, 'prs_mt', data_dir, pop_labels,
                             n_trait=n_trait, is_mt=True)
+        mt_pred = _evaluate_prediction(out_mt, 'prs_mt', pop_labels,
+                                       n_trait=n_trait, is_mt=True,
+                                       test_data=test_data)
         time_mt = time.time() - t0
 
         # ── emit one tidy row per (pop, trait, method) for this phi arm ───────
@@ -351,9 +439,11 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir):
                 }
                 rows.append(dict(base, method='prscsx',
                                  corr=prscsx_corr.get((pp, tt), float('nan')),
+                                 corr_pred=prscsx_pred.get((pp, tt), ''),
                                  time_s=round(time_st, 1)))
                 rows.append(dict(base, method='prscsx_mt',
                                  corr=mt_corr.get((pp, tt), float('nan')),
+                                 corr_pred=mt_pred.get((pp, tt), ''),
                                  time_s=round(time_mt, 1)))
     return rows
 
@@ -368,6 +458,17 @@ def _parse_args():
     p.add_argument('--n_snp',          type=int, default=2000)
     p.add_argument('--n_iter',         type=int, default=1000)
     p.add_argument('--n_burnin',       type=int, default=500)
+    p.add_argument('--sim_mode',       choices=('realistic', 'analytic'),
+                   default='realistic',
+                   help="'realistic' (per-population LD, finite/mismatched LD "
+                        "reference, individual-level GWAS, held-out prediction) "
+                        "or 'analytic' (original simulate_mt path).")
+    p.add_argument('--n_ref',          type=int, default=500,
+                   help='LD reference-panel individuals per population (realistic).')
+    p.add_argument('--n_test',         type=int, default=5000,
+                   help='Held-out test individuals per population (realistic).')
+    p.add_argument('--ld_hetero',      type=float, default=0.15,
+                   help='Per-population LD divergence strength (realistic; 0=shared).')
     return p.parse_args()
 
 
@@ -385,7 +486,9 @@ def main():
 
     rows = run_replicate(
         scenario_map[args.scenario_name],
-        args.seed, args.n_snp, args.n_iter, args.n_burnin, args.out_dir)
+        args.seed, args.n_snp, args.n_iter, args.n_burnin, args.out_dir,
+        sim_mode=args.sim_mode, n_ref=args.n_ref, n_test=args.n_test,
+        ld_hetero=args.ld_hetero)
 
     rep_dir  = os.path.join(args.out_dir, args.scenario_name, 'seed_%d' % args.seed)
     csv_path = os.path.join(rep_dir, 'result.csv')
