@@ -1,0 +1,154 @@
+# config_prsxtra_respiratory.yaml
+# PRS-CSx-MT vs PRSxtra in All of Us: He et al. (2026, Nat Genet) lung
+# diseases and traits.
+#
+# Stage A:  snakemake -s Snakefile_prsxtra --configfile config_prsxtra_respiratory.yaml --cores 8
+# Stage B:  aou/README.md
+#
+# The raw GWAS files must be downloaded by hand (GBMI, LC-GWMA, GSCAN, GWAS
+# Catalog GCST90705067-72, ...). Put each one at the `path` below, then check
+# its column names and fill every `n` (null fails the run on purpose).
+#
+# Before using any GWAS, confirm it does not include All of Us participants;
+# the evaluation assumes All of Us is independent of discovery.
+
+analysis_name: respiratory
+
+ref_dir:  "data/ld_ref"
+ref_type: "1kg"
+bim_prefix: "data/ld_ref/hm3_proxy"     # replace with aou_hm3_matched, see lipids config
+liftover_chain_url: "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz"
+
+prscsx_dir:    "../PRScsx"
+prscsx_mt_dir: "../PRScsx_mt"
+python: "python3"
+
+populations: ["EUR", "EAS", "AFR", "AMR"]
+traits: ["asthma", "copd", "lung_cancer", "fev1", "fvc", "fev1_fvc", "smoking", "cpd"]
+
+# One entry per trait. `defaults` applies to every population file of the trait
+# and can be overridden per population under `files`.
+#
+#   path      raw file (plain or .gz)
+#   n         number | "auto" (median of the N column) | {cases: .., controls: ..}
+#             (binary traits: effective N = 4 / (1/cases + 1/controls))
+#   match_by  rsid | position   (position needs chr/pos columns and `build`)
+#   build     37 | 38           (only used with match_by: position)
+#   cols      column names in the raw file. Effect: give `beta`, or `or`
+#             (converted to log OR), or `log_or`. Precision: `se`, or `p`.
+sumstats:
+  asthma:
+    defaults:
+      match_by: position
+      build: 38
+      cols: {chr: "#CHR", pos: POS, a1: ALT, a2: REF, beta: inv_var_meta_beta, se: inv_var_meta_sebeta}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/asthma_EUR.txt.gz, n: {cases: null, controls: null}}
+      EAS: {path: data/sumstats/raw/respiratory/asthma_EAS.txt.gz, n: {cases: null, controls: null}}
+      AFR: {path: data/sumstats/raw/respiratory/asthma_AFR.txt.gz, n: {cases: null, controls: null}}
+      AMR: {path: data/sumstats/raw/respiratory/asthma_AMR.txt.gz, n: {cases: null, controls: null}}
+  copd:
+    defaults:
+      match_by: position
+      build: 38
+      cols: {chr: "#CHR", pos: POS, a1: ALT, a2: REF, beta: inv_var_meta_beta, se: inv_var_meta_sebeta}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/copd_EUR.txt.gz, n: {cases: null, controls: null}}
+      EAS: {path: data/sumstats/raw/respiratory/copd_EAS.txt.gz, n: {cases: null, controls: null}}
+      AFR: {path: data/sumstats/raw/respiratory/copd_AFR.txt.gz, n: {cases: null, controls: null}}
+      AMR: {path: data/sumstats/raw/respiratory/copd_AMR.txt.gz, n: {cases: null, controls: null}}
+  lung_cancer:
+    defaults:
+      match_by: rsid
+      cols: {snp: SNP, a1: A1, a2: A2, beta: BETA, se: SE}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/lung_cancer_EUR.txt.gz, n: {cases: null, controls: null}}
+      EAS: {path: data/sumstats/raw/respiratory/lung_cancer_EAS.txt.gz, n: {cases: null, controls: null}}
+      AFR: {path: data/sumstats/raw/respiratory/lung_cancer_AFR.txt.gz, n: {cases: null, controls: null}}
+      AMR: {path: data/sumstats/raw/respiratory/lung_cancer_AMR.txt.gz, n: {cases: null, controls: null}}
+  fev1:
+    defaults:
+      match_by: rsid
+      cols: {snp: SNP, a1: A1, a2: A2, beta: BETA, se: SE, n: N}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/fev1_EUR.txt.gz, n: auto}
+      EAS: {path: data/sumstats/raw/respiratory/fev1_EAS.txt.gz, n: auto}
+      AFR: {path: data/sumstats/raw/respiratory/fev1_AFR.txt.gz, n: auto}
+      AMR: {path: data/sumstats/raw/respiratory/fev1_AMR.txt.gz, n: auto}
+  fvc:
+    defaults:
+      match_by: rsid
+      cols: {snp: SNP, a1: A1, a2: A2, beta: BETA, se: SE, n: N}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/fvc_EUR.txt.gz, n: auto}
+      EAS: {path: data/sumstats/raw/respiratory/fvc_EAS.txt.gz, n: auto}
+      AFR: {path: data/sumstats/raw/respiratory/fvc_AFR.txt.gz, n: auto}
+      AMR: {path: data/sumstats/raw/respiratory/fvc_AMR.txt.gz, n: auto}
+  fev1_fvc:
+    defaults:
+      match_by: rsid
+      cols: {snp: SNP, a1: A1, a2: A2, beta: BETA, se: SE, n: N}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/fev1_fvc_EUR.txt.gz, n: auto}
+      EAS: {path: data/sumstats/raw/respiratory/fev1_fvc_EAS.txt.gz, n: auto}
+      AFR: {path: data/sumstats/raw/respiratory/fev1_fvc_AFR.txt.gz, n: auto}
+      AMR: {path: data/sumstats/raw/respiratory/fev1_fvc_AMR.txt.gz, n: auto}
+  smoking:
+    defaults:
+      match_by: rsid
+      cols: {snp: RSID, a1: EFFECT_ALLELE, a2: OTHER_ALLELE, beta: BETA, se: SE, n: N}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/smoking_EUR.txt.gz, n: auto}
+      EAS: {path: data/sumstats/raw/respiratory/smoking_EAS.txt.gz, n: auto}
+      AFR: {path: data/sumstats/raw/respiratory/smoking_AFR.txt.gz, n: auto}
+      AMR: {path: data/sumstats/raw/respiratory/smoking_AMR.txt.gz, n: auto}
+  cpd:
+    defaults:
+      match_by: rsid
+      cols: {snp: RSID, a1: EFFECT_ALLELE, a2: OTHER_ALLELE, beta: BETA, se: SE, n: N}
+    files:
+      EUR: {path: data/sumstats/raw/respiratory/cpd_EUR.txt.gz, n: auto}
+      EAS: {path: data/sumstats/raw/respiratory/cpd_EAS.txt.gz, n: auto}
+      AFR: {path: data/sumstats/raw/respiratory/cpd_AFR.txt.gz, n: auto}
+      AMR: {path: data/sumstats/raw/respiratory/cpd_AMR.txt.gz, n: auto}
+
+fit:
+  phi: auto
+  n_iter:   null
+  n_burnin: null
+  thin: 5
+  seed: 2026
+  chromosomes: null
+  prscsx_mt:
+    cross_trait: mult
+    rho_pheno: null
+    n_overlap: null
+
+mtag:
+  python: "python2.7"
+  dir: "tools/mtag"
+  min_mean_chi2: 1.02
+  ld_ref_panel:
+    EUR: "tools/mtag/ld_ref_panel/eur_w_ld_chr/"
+    EAS: "data/ldscores/eas_w_ld_chr/"
+    AFR: "data/ldscores/afr_w_ld_chr/"
+    AMR: "data/ldscores/amr_w_ld_chr/"
+
+sumstats_raw_dir: "data/sumstats/raw/respiratory"
+sumstats_fmt_dir: "data/sumstats/formatted/respiratory"
+out_dir:          "results/prsxtra_aou/respiratory"
+
+# He et al. evaluated the three diseases in All of Us; the lung-function and
+# smoking traits enter only as candidate scores.
+aou:
+  outcomes:
+    asthma:      {type: binary, matched_trait: asthma}
+    copd:        {type: binary, matched_trait: copd}
+    lung_cancer: {type: binary, matched_trait: lung_cancer}
+  covariates: [age, sex, PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10]
+  tune_frac: 0.7
+  n_splits: 1
+  n_boot: 1000
+  min_group_n: 200
+  min_group_cases: 50
+  seed: 2026

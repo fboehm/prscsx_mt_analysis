@@ -91,5 +91,9 @@ generic `cluster: "sbatch ..."` block.
   recovery only)
 - `compare_methods.py`, `run_e2e_test.py`, `run_underrep_rescue.py`, `test_*.py` — standalone comparisons/tests
 - `scripts/`, `Snakefile*`, `config*.yaml` — older Snakemake pipeline (produced the pilot `results/`)
-- `analysis_plan_PRSxtra_MT.md` — All of Us real-data analysis plan
+- `analysis_plan_PRSxtra_MT.md` — All of Us real-data analysis plan (PRS-CSx-MT vs PRSxtra)
+- `Snakefile_prsxtra`, `config_prsxtra_{lipids,respiratory}.yaml` — Stage A of the All of Us
+  comparison: summary statistics → PRS-CSx-MT, PRS-CSx and MTAG → PRS-CSx candidate weights
+- `aou/` — Stage B, run inside the All of Us Researcher Workbench (scoring, phenotypes,
+  ridge stacking, evaluation); runbook in `aou/README.md`
 - `results/` — pilot simulation outputs

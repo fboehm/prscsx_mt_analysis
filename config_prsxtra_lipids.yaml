@@ -1,0 +1,97 @@
+# config_prsxtra_lipids.yaml
+# PRS-CSx-MT vs PRSxtra in All of Us: lipid traits (LDL, HDL, TG).
+#
+# Stage A (outside All of Us, needs only summary statistics):
+#   snakemake -s Snakefile_prsxtra --configfile config_prsxtra_lipids.yaml --cores 8
+# Stage B (inside the All of Us Researcher Workbench): see aou/README.md.
+#
+# All three traits come from Pan-UKBB (the same UK Biobank participants), so
+# EUR GWAS errors are correlated across traits. Real MTAG estimates that
+# overlap itself (LDSC intercepts); PRS-CSx-MT needs rho_pheno / n_overlap below.
+
+analysis_name: lipids
+
+# --- Reference panel and target SNP universe ---------------------------------
+ref_dir:  "data/ld_ref"          # snpinfo_mult_1kg_hm3 + ldblk_1kg_*/ land here
+ref_type: "1kg"
+# PRS-CSx(-MT) --bim_prefix. Starts as a proxy built from all HM3 SNPs; replace
+# with aou_hm3_matched (exported by aou/01_match_variants.py) and rerun the fits
+# so every method is fit on exactly the SNPs that can be scored in All of Us.
+bim_prefix: "data/ld_ref/hm3_proxy"
+# UCSC hg19 -> hg38 chain, used to give HM3 SNPs GRCh38 positions for All of Us.
+liftover_chain_url: "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz"
+
+# --- Sibling repos and interpreters ------------------------------------------
+prscsx_dir:    "../PRScsx"        # env PRSCSX_DIR overrides
+prscsx_mt_dir: "../PRScsx_mt"     # env PRSCSX_MT_DIR overrides
+python: "python3"                  # needs numpy, scipy, h5py, pandas, pyliftover
+
+# --- Traits x populations ----------------------------------------------------
+# Every trait needs a GWAS in every population: PRS-CSx-MT fits the full
+# trait x population grid jointly, and PRSxtra stacks the same grid.
+populations: ["EUR", "EAS", "AFR", "AMR"]
+traits: ["LDL", "HDL", "TG"]
+
+# source: pan_ukbb -> downloaded and split per population by scripts/format_pan_ukbb.py
+# n: GWAS sample size per population (Pan-UKBB manifest; update from the
+#    N printed by format_pan_ukbb.py if it differs materially).
+sumstats:
+  LDL:
+    source: pan_ukbb
+    phenocode: "30780"
+    sex: both_sexes
+    n: {EUR: 343621, EAS: 3951, AFR: 6435, AMR: 980}
+  HDL:
+    source: pan_ukbb
+    phenocode: "30760"
+    sex: both_sexes
+    n: {EUR: 343621, EAS: 3951, AFR: 6435, AMR: 980}
+  TG:
+    source: pan_ukbb
+    phenocode: "30870"
+    sex: both_sexes
+    n: {EUR: 343621, EAS: 3951, AFR: 6435, AMR: 980}
+
+# --- Fits (identical for every method so the comparison is fair) -------------
+fit:
+  phi: auto            # 'auto' (as in He et al. and the simulation) or a number
+  n_iter:   null       # null -> package defaults
+  n_burnin: null
+  thin: 5
+  seed: 2026           # each chromosome is seeded seed + chrom
+  chromosomes: null    # null -> 1..22; e.g. [22] for a smoke test
+  prscsx_mt:
+    cross_trait: mult
+    rho_pheno: null    # e.g. 0.3; PRS-CSx-MT applies one value to every trait pair
+    n_overlap: null    # per population, same order as `populations`
+
+# --- MTAG (PRSxtra step 1) ----------------------------------------------------
+# https://github.com/JonJala/mtag  -- needs Python 2.7 (conda env from its
+# environment.yml). Run per ancestry, with that ancestry's LD scores.
+mtag:
+  python: "python2.7"
+  dir: "tools/mtag"
+  min_mean_chi2: 1.02  # He et al.: weaker traits keep their raw GWAS
+  ld_ref_panel:        # ldsc --ref-ld-chr style folders (chromosome-split)
+    EUR: "tools/mtag/ld_ref_panel/eur_w_ld_chr/"
+    EAS: "data/ldscores/eas_w_ld_chr/"
+    AFR: "data/ldscores/afr_w_ld_chr/"
+    AMR: "data/ldscores/amr_w_ld_chr/"
+
+# --- Outputs ------------------------------------------------------------------
+sumstats_raw_dir: "data/sumstats/raw/lipids"
+sumstats_fmt_dir: "data/sumstats/formatted/lipids"
+out_dir:          "results/prsxtra_aou/lipids"
+
+# --- All of Us evaluation (copied into the manifest shipped with the weights) --
+aou:
+  outcomes:
+    LDL: {type: continuous, matched_trait: LDL, transform: none, statin_adjust: 0.7}
+    HDL: {type: continuous, matched_trait: HDL, transform: none}
+    TG:  {type: continuous, matched_trait: TG,  transform: log}
+  covariates: [age, sex, PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10]
+  tune_frac: 0.7       # He et al.: 70% tuning / 30% validation, stratified by ancestry
+  n_splits: 1          # >1 repeats the split as a robustness check
+  n_boot: 1000
+  min_group_n: 200     # skip ancestry x outcome cells smaller than this
+  seed: 2026

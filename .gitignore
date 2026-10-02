@@ -18,6 +18,11 @@ sim_sweep/deltas.csv
 # PRSxtra per-replicate tree (commit sim_sweep/all_results_prsxtra.csv + analysis_prsxtra/ instead)
 sim_sweep/results_prsxtra/
 
+# Real-data inputs / tools / outputs (large, regenerable)
+data/
+tools/
+results/prsxtra_aou/
+
 # Snakemake bookkeeping
 .snakemake/
 

@@ -1,0 +1,371 @@
+"""
+Snakefile_prsxtra
+-----------------
+Stage A of the All of Us comparison of PRS-CSx-MT (with and without ridge)
+against PRSxtra (He et al., Nat Genet 2026). Needs only GWAS summary
+statistics and the LD reference, so it runs outside All of Us. Its output,
+candidates/candidates.tsv.gz + candidates/manifest.json, is uploaded to the
+All of Us Researcher Workbench for Stage B (aou/README.md).
+
+Three families of candidate scores, one score per trait x ancestry each:
+
+  prscsx_mt     PRS-CSx-MT on the raw GWAS, all traits and ancestries jointly
+  mtag_prscsx   MTAG within each ancestry, then PRS-CSx per trait (PRSxtra steps 1-2)
+  prscsx        PRS-CSx per trait on the raw GWAS (for the PRSxa / PRS-CSx benchmarks)
+
+Every family uses the same LD reference, SNP set (bim_prefix), phi setting,
+MCMC length and seed. Stage B stacks them identically.
+
+DAG
+  download_snpinfo, download_ldblk, make_proxy_bim, download_chain, liftover_hm3
+  download_pan_ukbb -> format_pan_ukbb, pan_sample_size     (source: pan_ukbb)
+  format_file_sumstats                                       (source: file)
+  sumstats_qc
+  fit_prscsx_mt[chrom]
+  fit_prscsx[trait, chrom]
+  run_mtag[population] -> fit_mtag_prscsx[trait, chrom]
+  build_candidates
+
+Usage
+  snakemake -s Snakefile_prsxtra --configfile config_prsxtra_lipids.yaml -n
+  snakemake -s Snakefile_prsxtra --configfile config_prsxtra_lipids.yaml --cores 8
+  snakemake -s Snakefile_prsxtra --configfile config_prsxtra_respiratory.yaml --profile sim_sweep/profiles/slurm
+"""
+
+import json
+import os
+import shlex
+import sys
+
+if not config:
+    sys.exit("Pass a config: --configfile config_prsxtra_lipids.yaml "
+             "(or config_prsxtra_respiratory.yaml)")
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+NAME     = config["analysis_name"]
+REF_DIR  = config["ref_dir"]
+REF_TYPE = config.get("ref_type", "1kg")
+BIM_PFX  = config["bim_prefix"]
+POPS     = config["populations"]
+TRAITS   = config["traits"]
+RAW_DIR  = config["sumstats_raw_dir"]
+FMT_DIR  = config["sumstats_fmt_dir"]
+OUT_DIR  = config["out_dir"]
+PY       = config.get("python", "python3")
+SCRIPTS  = os.path.join(workflow.basedir, "scripts")
+
+# Shell-quoted copies for shell commands (paths may contain spaces).
+PYQ, SCRIPTSQ = shlex.quote(PY), shlex.quote(SCRIPTS)
+FMT_DIRQ, OUT_DIRQ, NAMEQ = shlex.quote(FMT_DIR), shlex.quote(OUT_DIR), shlex.quote(NAME)
+FIT      = config.get("fit", {})
+MTAG     = config.get("mtag", {})
+CHROMS   = [int(c) for c in (FIT.get("chromosomes") or range(1, 23))]
+
+PRSCSX_DIR    = os.environ.get("PRSCSX_DIR", config.get("prscsx_dir", "../PRScsx"))
+PRSCSX_MT_DIR = os.environ.get("PRSCSX_MT_DIR", config.get("prscsx_mt_dir", "../PRScsx_mt"))
+
+SNPINFO = f"{REF_DIR}/snpinfo_mult_{REF_TYPE}_hm3"
+HM3_38  = f"{REF_DIR}/hm3_hg38.tsv"
+CHAIN   = f"{REF_DIR}/hg19ToHg38.over.chain.gz"
+CHAIN_URL = config.get("liftover_chain_url",
+                       "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz")
+
+PAN_TRAITS  = [t for t in TRAITS if config["sumstats"][t].get("source") == "pan_ukbb"]
+FILE_TRAITS = [t for t in TRAITS if t not in PAN_TRAITS]
+
+missing = [t for t in TRAITS if t not in config["sumstats"]]
+if missing:
+    sys.exit(f"config.sumstats has no entry for: {missing}")
+for t in FILE_TRAITS:
+    files = config["sumstats"][t].get("files", {})
+    absent = [p for p in POPS if p not in files]
+    if absent:
+        sys.exit(f"config.sumstats.{t}.files lacks {absent}: PRS-CSx-MT needs every "
+                 f"trait in every population (drop the population or add a GWAS)")
+
+
+def _alt(names):
+    """Wildcard regex matching exactly these names (never matches if empty)."""
+    return "|".join(sorted(names, key=len, reverse=True)) or "(?!x)x"
+
+
+def file_spec(trait, pop):
+    """Merged per-file spec for a source: file trait (defaults <- files[pop])."""
+    entry = config["sumstats"][trait]
+    spec = dict(entry.get("defaults", {}))
+    over = dict(entry["files"][pop])
+    spec["cols"] = {**spec.get("cols", {}), **over.pop("cols", {})}
+    spec.update(over)
+    return spec
+
+
+def pan_ukbb_url(wc):
+    entry = config["sumstats"][wc.trait]
+    return f"{PAN_UKBB_BASE}/{entry['phenocode']}-{entry.get('sex', 'both_sexes')}.tsv.bgz"
+
+
+def manifest_config():
+    """Config blocks copied into manifest.json (shell-quoted JSON)."""
+    keep = ("analysis_name", "populations", "traits", "fit", "aou")
+    return shlex.quote(json.dumps({k: config[k] for k in keep if k in config}))
+
+
+def fit_args():
+    """Flags shared by every PRS-CSx / PRS-CSx-MT fit."""
+    q = shlex.quote
+    a = [f"--python {q(PY)}", f"--prscsx_dir {q(PRSCSX_DIR)}", f"--prscsx_mt_dir {q(PRSCSX_MT_DIR)}",
+         f"--ref_dir {q(REF_DIR)}", f"--bim_prefix {q(BIM_PFX)}",
+         f"--pops {','.join(POPS)}", f"--phi {FIT.get('phi', 'auto')}",
+         f"--thin {FIT.get('thin', 5)}"]
+    if FIT.get("n_iter") is not None:
+        a += [f"--n_iter {FIT['n_iter']}", f"--n_burnin {FIT['n_burnin']}"]
+    if FIT.get("seed") is not None:
+        a.append(f"--seed {FIT['seed']}")
+    return " ".join(a)
+
+
+def mt_args():
+    mt = FIT.get("prscsx_mt", {})
+    a = [f"--cross_trait {mt.get('cross_trait', 'mult')}"]
+    if mt.get("rho_pheno") is not None and mt.get("n_overlap") is not None:
+        a += [f"--rho_pheno {mt['rho_pheno']}",
+              "--n_overlap " + ",".join(map(str, mt["n_overlap"]))]
+    return " ".join(a)
+
+
+TRAITS_CSV = ",".join(TRAITS)
+POPS_CSV   = ",".join(POPS)
+CHROMS_CSV = ",".join(map(str, CHROMS))
+
+SST_ALL = expand(f"{FMT_DIR}/{{trait}}_{{pop}}.txt", trait=TRAITS, pop=POPS)
+N_ALL   = expand(f"{FMT_DIR}/{{trait}}_{{pop}}.n", trait=TRAITS, pop=POPS)
+LDBLK   = expand(f"{REF_DIR}/.ldblk_{{population}}_done", population=POPS)
+FIT_IN  = [SNPINFO, f"{BIM_PFX}.bim"] + LDBLK
+
+# Same 1KG LD panels as Snakefile_real (https://github.com/getian107/PRScsx).
+LDBLK_URLS = {
+    "AFR": "https://www.dropbox.com/s/mq94h1q9uuhun1h/ldblk_1kg_afr.tar.gz?dl=1",
+    "AMR": "https://www.dropbox.com/s/uv5ydr4uv528lca/ldblk_1kg_amr.tar.gz?dl=1",
+    "EAS": "https://www.dropbox.com/s/7ek4lwwf2b7f749/ldblk_1kg_eas.tar.gz?dl=1",
+    "EUR": "https://www.dropbox.com/s/mt6var0z96vb6fv/ldblk_1kg_eur.tar.gz?dl=1",
+    "SAS": "https://www.dropbox.com/s/hsm0qwgyixswdcv/ldblk_1kg_sas.tar.gz?dl=1",
+}
+SNPINFO_URL   = "https://www.dropbox.com/s/rhi806sstvppzzz/snpinfo_mult_1kg_hm3?dl=1"
+PAN_UKBB_BASE = "https://pan-ukb-us-east-1.s3.amazonaws.com/sumstats_flat_files"
+
+# Single-threaded numerics per job; parallelism comes from Snakemake jobs.
+THREAD_ENV = "export MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1"
+
+wildcard_constraints:
+    population="|".join(POPS),
+    chrom=r"\d+",
+
+localrules: all, download_snpinfo, download_ldblk, download_chain, download_pan_ukbb, pan_sample_size
+
+
+rule all:
+    input:
+        f"{OUT_DIR}/candidates/candidates.tsv.gz",
+        f"{OUT_DIR}/candidates/manifest.json",
+        f"{OUT_DIR}/qc/sumstats_qc.tsv",
+        HM3_38,
+
+
+# ---------------------------------------------------------------------------
+# Reference data
+# ---------------------------------------------------------------------------
+rule download_snpinfo:
+    output: SNPINFO
+    params: url=SNPINFO_URL
+    shell: "mkdir -p $(dirname {output:q}) && wget -q -L -O {output:q} '{params.url}'"
+
+
+# Wildcards are named `population`, never `pop`: Snakemake reserves `pop` (a
+# dict method name), so wc.pop would not be the wildcard value.
+rule download_ldblk:
+    output: sentinel=f"{REF_DIR}/.ldblk_{{population}}_done"
+    params:
+        url=lambda wc: LDBLK_URLS[wc.population],
+        lower=lambda wc: wc.population.lower(),
+        ref_dir=REF_DIR,
+    shell:
+        """
+        mkdir -p {params.ref_dir}
+        wget -q -L -O {params.ref_dir}/ldblk_1kg_{params.lower}.tar.gz '{params.url}'
+        tar -zxf {params.ref_dir}/ldblk_1kg_{params.lower}.tar.gz -C {params.ref_dir}
+        rm {params.ref_dir}/ldblk_1kg_{params.lower}.tar.gz
+        touch {output.sentinel:q}
+        """
+
+
+# Only builds the all-HM3 proxy. Any other bim_prefix (e.g. aou_hm3_matched
+# from aou/01_match_variants.py) is a user-supplied input that is never rebuilt.
+if os.path.basename(BIM_PFX) == "hm3_proxy":
+    rule make_proxy_bim:
+        input: snpinfo=SNPINFO
+        output: bim=f"{BIM_PFX}.bim"
+        script: "scripts/make_proxy_bim.py"
+
+
+rule download_chain:
+    output: CHAIN
+    params: url=CHAIN_URL
+    shell: "mkdir -p $(dirname {output:q}) && wget -q -L -O {output:q} '{params.url}'"
+
+
+# HM3 SNPs with GRCh38 positions: used to match GRCh38 GWAS files by position
+# and, in All of Us, to find the HM3 SNPs in the GRCh38 genotype data.
+rule liftover_hm3:
+    input: snpinfo=SNPINFO, chain=CHAIN
+    output: HM3_38
+    shell: "{PYQ} {SCRIPTSQ}/liftover_hm3.py --snpinfo {input.snpinfo:q} --chain {input.chain:q} --out {output:q}"
+
+
+# ---------------------------------------------------------------------------
+# Summary statistics -> {trait}_{POP}.txt (SNP A1 A2 BETA SE) + {trait}_{POP}.n
+# ---------------------------------------------------------------------------
+rule download_pan_ukbb:
+    output: f"{RAW_DIR}/{{trait}}_pan_ukbb.tsv.bgz"
+    wildcard_constraints: trait=_alt(PAN_TRAITS)
+    params: url=pan_ukbb_url
+    shell: "mkdir -p $(dirname {output:q}) && wget -q -L -O {output:q} '{params.url}'"
+
+
+rule format_pan_ukbb:
+    input:
+        bgz=f"{RAW_DIR}/{{trait}}_pan_ukbb.tsv.bgz",
+        snpinfo=SNPINFO,
+    output: expand(f"{FMT_DIR}/{{trait}}_{{pop}}.txt", pop=POPS, allow_missing=True)
+    wildcard_constraints: trait=_alt(PAN_TRAITS)
+    params: pops=POPS, out_dir=FMT_DIR
+    resources: mem_mb=16000
+    script: "scripts/format_pan_ukbb.py"
+
+
+rule pan_sample_size:
+    output: f"{FMT_DIR}/{{trait}}_{{population}}.n"
+    wildcard_constraints: trait=_alt(PAN_TRAITS)
+    params: n=lambda wc: config["sumstats"][wc.trait]["n"][wc.population]
+    shell: "mkdir -p $(dirname {output:q}) && echo {params.n} > {output:q}"
+
+
+rule format_file_sumstats:
+    input:
+        raw=lambda wc: file_spec(wc.trait, wc.population)["path"],
+        snpinfo=SNPINFO,
+        hm3_38=HM3_38,
+    output:
+        sst=f"{FMT_DIR}/{{trait}}_{{population}}.txt",
+        n=f"{FMT_DIR}/{{trait}}_{{population}}.n",
+    wildcard_constraints: trait=_alt(FILE_TRAITS)
+    params: spec=lambda wc: shlex.quote(json.dumps(file_spec(wc.trait, wc.population)))
+    resources: mem_mb=16000
+    shell:
+        "{PYQ} {SCRIPTSQ}/format_gwas_sumstats.py --raw {input.raw:q} --spec {params.spec} "
+        "--snpinfo {input.snpinfo:q} --hm3_hg38 {input.hm3_38:q} --pop {wildcards.population} "
+        "--out {output.sst:q} --n_out {output.n:q}"
+
+
+rule sumstats_qc:
+    input: sst=SST_ALL, n=N_ALL
+    output: f"{OUT_DIR}/qc/sumstats_qc.tsv"
+    shell: "{PYQ} {SCRIPTSQ}/sumstats_qc.py --sst {input.sst:q} --out {output:q}"
+
+
+# ---------------------------------------------------------------------------
+# Fits (one job per chromosome)
+# ---------------------------------------------------------------------------
+rule fit_prscsx_mt:
+    input: FIT_IN, SST_ALL, N_ALL
+    output: touch(f"{OUT_DIR}/fits/prscsx_mt/.chr{{chrom}}.done")
+    params: args=fit_args(), mt=mt_args(), traits=",".join(TRAITS)
+    resources: mem_mb=lambda wc: 4000 + 1000 * len(TRAITS) * len(POPS), runtime=2880
+    log: f"{OUT_DIR}/logs/prscsx_mt_chr{{chrom}}.log"
+    shell:
+        "{THREAD_ENV}; {PYQ} {SCRIPTSQ}/run_prs_fit.py --method prscsx_mt {params.args} {params.mt} "
+        "--traits {params.traits} --sst_dir {FMT_DIRQ} --chrom {wildcards.chrom} "
+        "--out_dir {OUT_DIRQ}/fits/prscsx_mt --out_name {NAMEQ} > {log:q} 2>&1"
+
+
+rule fit_prscsx:
+    input:
+        FIT_IN,
+        sst=expand(f"{FMT_DIR}/{{trait}}_{{pop}}.txt", pop=POPS, allow_missing=True),
+        n=expand(f"{FMT_DIR}/{{trait}}_{{pop}}.n", pop=POPS, allow_missing=True),
+    output: touch(f"{OUT_DIR}/fits/prscsx/{{trait}}/.chr{{chrom}}.done")
+    wildcard_constraints: trait=_alt(TRAITS)
+    params: args=fit_args()
+    resources: mem_mb=lambda wc: 4000 + 1000 * len(POPS), runtime=1440
+    log: f"{OUT_DIR}/logs/prscsx_{{trait}}_chr{{chrom}}.log"
+    shell:
+        "{THREAD_ENV}; {PYQ} {SCRIPTSQ}/run_prs_fit.py --method prscsx {params.args} "
+        "--traits {wildcards.trait} --sst_dir {FMT_DIRQ} --chrom {wildcards.chrom} "
+        "--out_dir {OUT_DIRQ}/fits/prscsx/{wildcards.trait} --out_name {wildcards.trait} > {log:q} 2>&1"
+
+
+# MTAG across traits within one ancestry (PRSxtra step 1). Traits with mean
+# chi2 <= min_mean_chi2 are passed through unchanged, as in He et al.
+rule run_mtag:
+    input:
+        snpinfo=SNPINFO,
+        sst=expand(f"{FMT_DIR}/{{trait}}_{{population}}.txt", trait=TRAITS, allow_missing=True),
+        n=expand(f"{FMT_DIR}/{{trait}}_{{population}}.n", trait=TRAITS, allow_missing=True),
+    output:
+        sst=expand(f"{OUT_DIR}/mtag/{{trait}}_{{population}}.txt", trait=TRAITS, allow_missing=True),
+        n=expand(f"{OUT_DIR}/mtag/{{trait}}_{{population}}.n", trait=TRAITS, allow_missing=True),
+        summary=f"{OUT_DIR}/mtag/summary_{{population}}.tsv",
+    params:
+        traits=",".join(TRAITS),
+        panel=lambda wc: shlex.quote(MTAG.get("ld_ref_panel", {}).get(wc.population, "") or ""),
+        mtag_python=shlex.quote(MTAG.get("python", "python2.7")),
+        mtag_dir=shlex.quote(MTAG.get("dir", "tools/mtag")),
+        min_chi2=MTAG.get("min_mean_chi2", 1.02),
+    resources: mem_mb=lambda wc: 8000 + 2000 * len(TRAITS), runtime=720
+    log: f"{OUT_DIR}/logs/mtag_{{population}}.log"
+    shell:
+        "{PYQ} {SCRIPTSQ}/run_mtag_pop.py --pop {wildcards.population} --traits {params.traits} "
+        "--sst_dir {FMT_DIRQ} --snpinfo {input.snpinfo:q} --out_dir {OUT_DIRQ}/mtag "
+        "--mtag_python {params.mtag_python} --mtag_dir {params.mtag_dir} "
+        "--ld_ref_panel {params.panel} --min_mean_chi2 {params.min_chi2} > {log:q} 2>&1"
+
+
+rule fit_mtag_prscsx:
+    input:
+        FIT_IN,
+        sst=expand(f"{OUT_DIR}/mtag/{{trait}}_{{pop}}.txt", pop=POPS, allow_missing=True),
+        n=expand(f"{OUT_DIR}/mtag/{{trait}}_{{pop}}.n", pop=POPS, allow_missing=True),
+    output: touch(f"{OUT_DIR}/fits/mtag_prscsx/{{trait}}/.chr{{chrom}}.done")
+    wildcard_constraints: trait=_alt(TRAITS)
+    params: args=fit_args()
+    resources: mem_mb=lambda wc: 4000 + 1000 * len(POPS), runtime=1440
+    log: f"{OUT_DIR}/logs/mtag_prscsx_{{trait}}_chr{{chrom}}.log"
+    shell:
+        "{THREAD_ENV}; {PYQ} {SCRIPTSQ}/run_prs_fit.py --method prscsx {params.args} "
+        "--traits {wildcards.trait} --sst_dir {OUT_DIRQ}/mtag --chrom {wildcards.chrom} "
+        "--out_dir {OUT_DIRQ}/fits/mtag_prscsx/{wildcards.trait} --out_name {wildcards.trait} > {log:q} 2>&1"
+
+
+# ---------------------------------------------------------------------------
+# Candidate weight matrix + manifest (what gets uploaded to All of Us)
+# ---------------------------------------------------------------------------
+rule build_candidates:
+    input:
+        mt=expand(f"{OUT_DIR}/fits/prscsx_mt/.chr{{chrom}}.done", chrom=CHROMS),
+        st=expand(f"{OUT_DIR}/fits/prscsx/{{trait}}/.chr{{chrom}}.done", trait=TRAITS, chrom=CHROMS),
+        mtag=expand(f"{OUT_DIR}/fits/mtag_prscsx/{{trait}}/.chr{{chrom}}.done", trait=TRAITS, chrom=CHROMS),
+        mtag_summary=expand(f"{OUT_DIR}/mtag/summary_{{population}}.tsv", population=POPS),
+        qc=f"{OUT_DIR}/qc/sumstats_qc.tsv",
+        snpinfo=SNPINFO,
+    output:
+        weights=f"{OUT_DIR}/candidates/candidates.tsv.gz",
+        manifest=f"{OUT_DIR}/candidates/manifest.json",
+    params: cfg=manifest_config()
+    resources: mem_mb=16000
+    shell:
+        "{PYQ} {SCRIPTSQ}/build_candidates.py --fit_dir {OUT_DIRQ}/fits --name {NAMEQ} "
+        "--traits {TRAITS_CSV} --pops {POPS_CSV} --chroms {CHROMS_CSV} --snpinfo {input.snpinfo:q} "
+        "--mtag_summary {input.mtag_summary:q} --qc {input.qc:q} --config_json {params.cfg} "
+        "--out {output.weights:q} --manifest {output.manifest:q}"
+

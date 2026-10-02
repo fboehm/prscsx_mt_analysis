@@ -1,319 +1,93 @@
-# Analysis Plan: Multi-Trait Multi-Ancestry PRS Using PRS-CSx-MT
+# Analysis Plan: PRS-CSx-MT vs PRSxtra in All of Us
 
 **Reference:** He et al. (2026), *Nature Genetics*.
 "Multi-trait and multi-ancestry genetic analysis of comorbid lung diseases and traits improves genetic discovery and polygenic risk prediction."
 
----
-
-## Overview
-
-This plan adapts the PRSxtra framework from He et al. using the local **PRS-CSx-MT** implementation (`PRScsx_mt/PRScsx_mt.py`).
-
-**Key departure from He et al.:** He et al. used a two-step approach — MTAG (multi-trait) followed by PRS-CSx (multi-ancestry) — because PRS-CSx can only handle one trait at a time.  PRS-CSx-MT models cross-trait covariance and cross-ancestry LD *jointly in a single MCMC*, making the MTAG pre-processing step unnecessary and, if applied, would double-count the cross-trait information.  The pipeline here therefore drops Phase 1 and feeds raw GWAS summary statistics directly into PRS-CSx-MT.
-
-| Phase | He et al. method | This plan |
-|-------|-----------------|-----------|
-| 1 | MTAG (multi-trait boost per ancestry) | **Skipped** — PRS-CSx-MT handles this internally |
-| 2 | PRS-CSx per trait (multi-ancestry shrinkage) | **PRS-CSx-MT** (multi-trait + multi-ancestry jointly) |
-| 3 | Ridge regression to combine 39 candidate scores | Ridge regression to combine 32 candidate scores |
-
-**Target traits (following He et al.):**
-
-| Trait category | Phenotypes |
-|---------------|-----------|
-| Disease | Asthma, COPD, Lung cancer |
-| Spirometry | FEV1, FVC, FEV1/FVC |
-| Smoking | Smoking status (ever/never), Cigarettes per day |
-
-**Ancestry groups:** AFR, AMR, EAS, EUR (matching the paper's reference panels).
-
-**Validation cohort:** All of Us Research Program (independent of GWAS discovery cohorts).
+**Pipeline:** `Snakefile_prsxtra` (Stage A, summary statistics) and `aou/` (Stage B, inside the All of Us Researcher Workbench). The runbook is `aou/README.md`.
 
 ---
 
-## Phase 1 — Data Acquisition and Harmonization
+## Question
 
-### Goal
-Obtain and harmonize ancestry-specific GWAS summary statistics for all 8 traits, ready for direct input to PRS-CSx-MT.
+Does PRS-CSx-MT, with or without ridge stacking, predict better in All of Us than **PRSxtra**, He et al.'s MTAG → PRS-CSx → ridge pipeline? This is the real-data counterpart of the simulation in `sim_sweep/compare_prsxtra.py` (results: `sim_sweep/analysis_prsxtra/report.md`). There, PRS-CSx-MT + ridge beat PRSxtra in every grid cell, by +0.009 (EUR) and +0.014 (EAS) in corr(PRS, y).
 
-### Inputs
+## Methods compared
 
-| Trait | Source |
-|-------|--------|
-| Asthma, COPD | Global Biobank Meta-analysis Initiative (GBMI) |
-| Lung cancer | LC-GWMA (lung cancer multipopulation genome-wide meta-analysis) |
-| FEV1, FVC, FEV1/FVC | GWAS Catalog accessions GCST90705067–GCST90705072 (He et al. EAS); Pan-UKBB or LF-GWMA (EUR/AFR/AMR) |
-| Smoking status, Cig/day | GSCAN (GWAS & Sequencing Consortium of Alcohol and Nicotine use) |
+| Method | Multi-trait step | Multi-ancestry step | Tuning in All of Us |
+|---|---|---|---|
+| **PRSxtra** (He et al.) | MTAG, separately within each ancestry | PRS-CSx per trait | ridge over all trait × ancestry scores |
+| **PRS-CSx-MT + ridge** | PRS-CSx-MT (joint) | PRS-CSx-MT (joint) | ridge over all trait × ancestry scores |
+| **PRS-CSx-MT** | PRS-CSx-MT (joint) | PRS-CSx-MT (joint) | none: the score matching the target ancestry and trait |
+| PRSxa (benchmark) | none | PRS-CSx | ridge over the target trait's ancestry scores |
+| PRS-CSx, MTAG → PRS-CSx | none / MTAG | PRS-CSx | none |
 
-### Steps
+PRS-CSx-MT gets raw GWAS, never MTAG output. It models cross-trait sharing itself, so MTAG first would count that information twice. PRSxtra and PRS-CSx-MT + ridge have the same number of candidate scores (traits × ancestries), the same tuning participants and the same CV folds. Their difference isolates MTAG + PRS-CSx versus the joint model.
 
-1. **Download GWAS summary statistics** for each trait × ancestry combination (32 files: 8 traits × 4 ancestries). Prioritize ancestry-specific summary statistics where available; use multi-ancestry meta-analysis results for ancestries with no trait-specific GWAS.
+Not reproduced from He et al.: their meta-ancestry (`--meta`) candidate scores (39 vs 32 candidates). They could be added as extra columns in both families.
 
-2. **Harmonize to PRS-CSx-MT input format:**
-   - Required columns: `SNP A1 A2 BETA SE N`
-   - For binary traits (asthma, COPD, lung cancer): convert log-OR to `BETA`, with corresponding `SE`
-   - Filter to HapMap3 SNPs only (using `snpinfo_mult_1kg_hm3`); ~1.1 M SNPs
-   - Align effect alleles to the HapMap3 reference strand
-   - Use GRCh37 coordinates throughout
-   - Script: `scripts/format_gwas_sumstats.py` (adapt from `scripts/format_pan_ukbb.py`)
+## Trait sets
 
-3. **Quality-check each file:**
-   - Confirm genomic inflation factor (λGC) is reasonable
-   - Verify effect direction of well-known sentinel variants (e.g., SERPINA1 for COPD, FTO/MC4R region for BMI-related traits)
-   - Note: exclude traits with mean χ² ≤ 1.02 for a given ancestry, as these provide insufficient signal (following He et al.'s MTAG inclusion criterion, applied here as a QC filter)
+| Set | Candidate traits | Outcomes in All of Us | GWAS sources |
+|---|---|---|---|
+| Lipids | LDL, HDL, TG | LDL, HDL, TG (EHR labs) | Pan-UKBB (EUR, EAS, AFR, AMR) |
+| Respiratory (He et al.) | asthma, COPD, lung cancer, FEV1, FVC, FEV1/FVC, smoking, CPD | asthma, COPD, lung cancer | GBMI; LC-GWMA; GCST90705067–72 (He et al. EAS) + Pan-UKBB/LF-GWMA; GSCAN |
 
-### Outputs
-`data/sumstats/formatted/{TRAIT}_{POP}.txt` — 32 harmonized summary statistic files.
+Ancestries: AFR, AMR, EAS, EUR (1KG LD panels). PRS-CSx-MT fits the full trait × ancestry grid, so every trait needs a GWAS in every ancestry used. Drop an ancestry rather than leave a gap.
 
 ---
 
-## Phase 2 — Multi-Trait Multi-Ancestry Shrinkage with PRS-CSx-MT
+## Stage A: summary statistics (outside All of Us)
 
-### Goal
-Jointly estimate posterior SNP effect sizes across all 8 traits and 4 ancestry groups in a single MCMC run, producing 32 candidate polygenic scores.
+`snakemake -s Snakefile_prsxtra --configfile config_prsxtra_{lipids,respiratory}.yaml`
 
-### Rationale for skipping MTAG
-MTAG boosts per-trait summary statistics by borrowing information from correlated traits, and He et al. used it specifically because PRS-CSx cannot model multiple traits simultaneously.  PRS-CSx-MT incorporates the same cross-trait information sharing internally, via a multi-trait continuous shrinkage prior, making MTAG a redundant pre-processing step.  Running MTAG before PRS-CSx-MT would inflate the apparent cross-trait correlations by encoding them twice — once in the boosted summary statistics and again in the MCMC joint model.
+1. **Harmonize** each GWAS to `SNP A1 A2 BETA SE` on HM3 SNPs (`scripts/format_pan_ukbb.py` and `scripts/format_gwas_sumstats.py`).
+   - Matching is by rsID or by GRCh37/38 position, using a GRCh38 liftover of HM3 (`scripts/liftover_hm3.py`).
+   - Odds ratios are converted to log-OR. For binary traits, N is the effective N = 4/(1/cases + 1/controls).
+   - QC table: `qc/sumstats_qc.tsv` (mean χ², λGC).
+2. **PRS-CSx-MT:** all traits × ancestries jointly, one job per chromosome.
+3. **PRS-CSx:** per trait, on the raw GWAS.
+4. **MTAG** within each ancestry (`scripts/run_mtag_pop.py`), using the real MTAG software with that ancestry's LD scores.
+   - Traits with mean χ² ≤ 1.02 are passed through unchanged, as in He et al.
+   - The MTAG output goes to PRS-CSx as z-scores with MTAG's GWAS-equivalent N.
+5. **PRS-CSx** per trait on the MTAG output.
+6. **Assemble** `candidates/candidates.tsv.gz` (three families × traits × ancestries) and `manifest.json`.
 
-### Inputs
-- Harmonized GWAS summary statistics from Phase 1 (32 files)
-- 1KG LD reference panels (`data/ld_ref/ldblk_1kg_{pop}/`)
-- HapMap3 SNP info file (`data/ld_ref/snpinfo_mult_1kg_hm3`)
-- Target `.bim` file (All of Us HM3 SNP subset)
+All fits share the LD reference, SNP set (`bim_prefix`), phi (auto), MCMC length and per-chromosome seeds. For the final run, set `bim_prefix` to `aou_hm3_matched` from Stage B step 1, so fits use exactly the SNPs that can be scored.
 
-### Configuration (`config_respiratory.yaml`)
+## Stage B: All of Us Researcher Workbench
 
-```yaml
-ref_dir:  "data/ld_ref"
-bim_prefix: "data/aou/aou_hm3"   # replace with real AoU BIM prefix
+0. **Extract** the HM3 positions from the GRCh38 ACAF genotype files (`aou/00_extract_hm3.sh`).
+1. **Match** HM3 rsIDs to All of Us variants by chr:pos:alleles (`aou/01_match_variants.py`).
+2. **Score** all candidates in one plink2 pass (`aou/02_score_candidates.py`).
+3. **Extract phenotypes, covariates and ancestry** (`aou/03_extract_phenotypes.py`).
+   - Lipids: per-person median of LOINC lab values, LDL divided by 0.7 for statin users, TG log-transformed.
+   - Diseases: ICD-9/10 codes. **Replace the default code lists with He et al. Supplementary Tables 36–40**, and add their smoking-status and SERPINA1 criteria.
+   - Ancestry groups and PCs come from the All of Us `ancestry_preds.tsv`.
+4. **Stack and evaluate** (`aou/04_stack_evaluate.R`):
+   - Within each ancestry: 70/30 tuning/validation split, stratified by case status.
+   - Ridge: `cv.glmnet(alpha = 0)`, 10-fold, `lambda.min`; covariates (age, sex, PC1–10) unpenalized.
+   - Continuous outcomes: incremental R² over covariates, with paired-bootstrap contrasts.
+   - Binary outcomes: AUC, with paired DeLong contrasts, and OR per SD.
+   - Optional repeated splits as a robustness check (not independent replicates).
+   - Counts below 20 are masked before export.
 
-traits:      ["asthma", "copd", "lung_cancer", "fev1", "fvc", "fev1_fvc",
-              "smoking", "cpd"]
-populations: ["EUR", "EAS", "AFR", "AMR"]
+## Primary and secondary contrasts
 
-# GWAS sample sizes per trait × population (fill from actual GWAS manifests)
-n_gwas:
-  asthma:
-    EUR: 1768106
-    EAS: 100000    # update from GBMI manifest
-    AFR: 100000
-    AMR: 100000
-  copd:
-    EUR: 1370418
-    EAS: 100000
-    AFR: 100000
-    AMR: 100000
-  lung_cancer:
-    EUR: 70156
-    EAS: 10000     # update from LC-GWMA
-    AFR: 5000
-    AMR: 5000
-  fev1:
-    EUR: 562003
-    EAS: 129685    # KCPS-II + TWB
-    AFR: 10000
-    AMR: 10000
-  fvc:
-    EUR: 562008
-    EAS: 129685
-    AFR: 10000
-    AMR: 10000
-  fev1_fvc:
-    EUR: 561866
-    EAS: 129685
-    AFR: 10000
-    AMR: 10000
-  smoking:
-    EUR: 3371039
-    EAS: 100000
-    AFR: 100000
-    AMR: 100000
-  cpd:
-    EUR: 782050
-    EAS: 50000
-    AFR: 50000
-    AMR: 50000
+Primary, per ancestry × outcome:
+- PRS-CSx-MT + ridge − PRSxtra
+- PRS-CSx-MT − PRSxtra
 
-phi:      null    # let algorithm estimate; set 1e-2 for a faster initial run
-n_iter:   1000
-n_burnin: 500
-thin:     5
-n_jobs:   8       # chromosome-level parallelism
+Secondary:
+- PRSxtra − PRSxa: what MTAG adds within the PRSxtra pipeline
+- PRS-CSx-MT − PRS-CSx: the multi-trait gain without tuning
+- PRS-CSx-MT + ridge − PRS-CSx-MT: the stacking gain
 
-# Sample overlap correction
-# All GBMI traits share participants across ancestries; set rho_pheno once
-# phenotypic correlations between traits are estimated in training data.
-rho_pheno: null   # e.g. 0.3 for lung function traits; null = no correction
-n_overlap: null   # set if exact overlapping sample counts are known
-
-sumstats_fmt_dir: "data/sumstats/formatted"
-out_dir:          "results/respiratory/prscsx_mt"
-```
-
-### Steps
-
-1. **Run PRS-CSx-MT** via an updated Snakefile (`Snakefile_respiratory`):
-   ```bash
-   snakemake -s Snakefile_respiratory --cores 8
-   ```
-   The core rule calls:
-   ```bash
-   python PRScsx_mt/PRScsx_mt.py \
-     --ref_dir=data/ld_ref \
-     --bim_prefix=data/aou/aou_hm3 \
-     --sst_file='formatted/asthma_EUR.txt,asthma_EAS.txt,...;copd_EUR.txt,...;...' \
-     --n_gwas='1768106,100000,...;1370418,...;...' \
-     --pop=EUR,EAS,AFR,AMR \
-     --out_dir=results/respiratory/prscsx_mt \
-     --out_name=respiratory \
-     --n_iter=1000 --n_burnin=500 --n_jobs=8
-   ```
-
-2. **Verify outputs.** PRS-CSx-MT writes one posterior weight file per trait × ancestry × chromosome.
-   Expected: 8 traits × 4 ancestries × 22 chromosomes = 704 files.
-   After concatenating chromosomes per trait × ancestry: **32 candidate scores**.
-
-3. **Concatenate chromosome-level weight files** per trait × ancestry into genome-wide scoring files:
-   ```bash
-   # Example for asthma, EUR
-   cat results/respiratory/prscsx_mt/respiratory_EUR_asthma_pst_eff_a1_b0.5_*_chr*.txt \
-     > results/respiratory/scores/respiratory_EUR_asthma_genome.txt
-   ```
-
-### Outputs
-`results/respiratory/scores/respiratory_{POP}_{TRAIT}_genome.txt` — 32 genome-wide posterior weight files.
-
----
-
-## Phase 3 — Regularization via Ridge Regression
-
-### Goal
-Linearly combine the 32 candidate PRSs into a single final score that maximally predicts each disease outcome.
-
-### Study population: All of Us Research Program
-
-**Inclusion criteria** (matching He et al.):
-- Whole-genome sequencing data, v7 release
-- Self-reported sex and date of birth
-- For COPD and lung cancer: self-reported smoking status required
-- Exclude individuals with homozygous SERPINA1 variants (rs6647, rs709932, rs28929474) from COPD analysis
-
-**Phenotype ascertainment** (ICD-9/ICD-10 codes, following He et al. Supplementary Tables 36–40):
-- Asthma: ICD codes + self-reported family history
-- COPD: ICD codes + spirometry data where available
-- Lung cancer: ICD codes
-
-**Train/validation split:** randomly assign 70% of QC-passed participants to training, 30% to held-out validation (stratified by ancestry group).
-
-### Steps
-
-1. **Score all All of Us participants** on each of the 32 candidate PRSs using PLINK2:
-   ```bash
-   plink2 \
-     --bfile data/aou/aou_hm3 \
-     --score results/respiratory/scores/respiratory_EUR_asthma_genome.txt 1 2 3 \
-     --score-col-nums 3 \
-     --out results/scores/cand_EUR_asthma
-   ```
-   Repeat for each trait × ancestry combination (32 calls, or parallelize).
-
-2. **Standardize** each candidate PRS to mean 0, SD 1 using training-set statistics.
-
-3. **Fit ridge regression** (R `glmnet`) separately for each disease outcome (asthma, COPD, lung cancer):
-   ```r
-   library(glmnet)
-
-   # x: n_train × 32 matrix of standardized candidate PRSs
-   # y: binary disease status (0/1)
-   fit <- cv.glmnet(x, y, alpha = 0,        # alpha=0 → ridge
-                    family = "binomial",
-                    nfolds = 10,
-                    type.measure = "auc")
-
-   best_lambda <- fit$lambda.min
-   coefs <- coef(fit, s = best_lambda)      # 32 weights + intercept
-   ```
-
-4. **Compute PRSxtra** in the validation set as the linear combination of candidate scores weighted by ridge coefficients.
-
-5. **Evaluate performance** in the held-out 30%:
-   - Primary metric: AUC (DeLong's two-sided test for comparisons)
-   - Stratify by ancestry: AFR, AMR, EAS, EUR (and MID, SAS if sample sizes permit)
-   - Benchmark comparisons:
-     - Single-trait, ancestry-matched PRS (using PRS-CS on each trait × ancestry separately)
-     - PRSxa: PRS-CSx per trait, ridge regression across ancestries only
-     - PRSmix+ (multi-trait, single-ancestry library)
-   - Report odds ratios per SD of PRSxtra
-   - Evaluate in clinical subgroups: smokers vs. never-smokers (COPD/lung cancer); with vs. without family history (asthma)
-
-6. **Assess disease exacerbation prediction** (secondary outcome):
-   - COPD exacerbations: ICD-coded hospitalization and ER visits
-   - Asthma exacerbations
-
-### Outputs
-- Ridge regression coefficient files: `results/ridge/PRSxtra_{DISEASE}_coefs.txt`
-- Validation AUC summary table (by disease × ancestry)
-- OR plots by PRS decile
-- Score distribution and prevalence-by-decile figures
-
----
-
-## Summary of Key Departures from He et al.
-
-| Decision | He et al. | This plan | Rationale |
-|----------|-----------|-----------|-----------|
-| Multi-trait step | MTAG (separate, per ancestry) | **None** | PRS-CSx-MT models cross-trait info internally |
-| Multi-ancestry step | PRS-CSx (separate, per trait) | **PRS-CSx-MT** (jointly) | Unified model avoids double-counting |
-| Candidate scores | 39 (incl. meta-ancestry scores) | 32 (4 ancestries × 8 traits) | Simpler; meta-ancestry step optional |
-| LD reference | 1KG | 1KG (same) | — |
-| Target cohort | All of Us v7 | All of Us v7 (same) | — |
-| Regularization | Ridge (glmnet) | Ridge (glmnet, same) | — |
-
----
-
-## File Structure
-
-```
-test_claude/
-├── config_respiratory.yaml          # new config for this analysis
-├── Snakefile_respiratory            # new Snakefile (adapts Snakefile_real)
-├── data/
-│   ├── ld_ref/                      # 1KG LD panels (already downloaded)
-│   ├── aou/
-│   │   └── aou_hm3.bim              # export from All of Us
-│   └── sumstats/
-│       ├── raw/                     # downloaded GWAS files
-│       └── formatted/               # harmonized, HM3-filtered files
-├── results/
-│   ├── respiratory/
-│   │   ├── prscsx_mt/               # Phase 2 chromosome-level weight files
-│   │   └── scores/                  # genome-wide weight files (32 files)
-│   └── ridge/                       # Phase 3 coefficients + PRSxtra scores
-├── scripts/
-│   ├── format_gwas_sumstats.py      # harmonize raw GWAS → PRS-CSx-MT format
-│   ├── compute_scores.sh            # PLINK2 scoring (32 candidate PRSs)
-│   └── ridge_regression.R           # Phase 3 regularization
-└── PRScsx_mt/                       # existing software
-```
-
----
-
-## Dependencies
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| PRS-CSx-MT | local (`PRScsx_mt/`) | Phase 2 joint shrinkage |
-| PLINK2 | ≥2.0 | Compute individual scores |
-| R `glmnet` | ≥4.0 | Phase 3 ridge regression |
-| Python 3 | ≥3.8 | Formatting scripts |
-| Snakemake | ≥7.0 | Workflow management |
-
----
+The simulation predicts small but consistent gains for PRS-CSx-MT. They should be largest in under-represented ancestries (EAS in the simulation) and where traits share causal variants.
 
 ## Milestones
 
-1. **Data acquisition** — Download and harmonize GWAS summary statistics for all 8 traits × 4 ancestries; export AoU HM3 `.bim` file.
-2. **Phase 2** — Run PRS-CSx-MT; verify and concatenate weight files (32 genome-wide scores).
-3. **Phase 3 training** — Score All of Us training set on 32 candidate PRSs; fit ridge regression per disease.
-4. **Phase 3 validation** — Evaluate PRSxtra vs. benchmarks in held-out set, stratified by ancestry.
-5. **Write-up** — AUC tables, OR plots, ancestry-stratified comparisons.
+1. Download the respiratory GWAS; fill column names and case/control counts in `config_prsxtra_respiratory.yaml`. Set up MTAG (Python 2.7) and per-ancestry LD scores.
+2. Run Stage A for both trait sets with the HM3 proxy BIM.
+3. Workbench steps 0–1; export `aou_hm3_matched.bim`; rerun Stage A on it.
+4. Workbench steps 2–4 for both trait sets.
+5. Write-up: tables by ancestry × outcome; comparison with the simulation.
