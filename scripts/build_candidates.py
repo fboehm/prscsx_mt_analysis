@@ -11,6 +11,7 @@ Families (column prefixes):
     prscsx_mt     fits/prscsx_mt/{name}_{POP}_trait{t}_pst_eff_*_chr{c}.txt
     mtag_prscsx   fits/mtag_prscsx/{trait}/{trait}_{POP}_pst_eff_*_chr{c}.txt
     prscsx        fits/prscsx/{trait}/{trait}_{POP}_pst_eff_*_chr{c}.txt
+With --meta, POP also takes the value META (the fits' --meta output).
 
 Effects are per A1 allele. Every column is oriented to the HM3 reference A1/A2
 (sign flipped where a fit reports the alleles the other way round); a SNP absent
@@ -62,6 +63,7 @@ def main():
     ap.add_argument("--traits", required=True)
     ap.add_argument("--pops", required=True)
     ap.add_argument("--chroms", required=True)
+    ap.add_argument("--meta", action="store_true", help="also collect META columns")
     ap.add_argument("--snpinfo", required=True)
     ap.add_argument("--mtag_summary", nargs="*", default=[])
     ap.add_argument("--qc")
@@ -71,6 +73,7 @@ def main():
     args = ap.parse_args()
 
     traits, pops = args.traits.split(","), args.pops.split(",")
+    score_pops = pops + (["META"] if args.meta else [])
     chroms = [int(c) for c in args.chroms.split(",")]
 
     ref = pd.read_csv(args.snpinfo, sep=r"\s+", usecols=[0, 1, 2, 3, 4], header=0,
@@ -80,7 +83,7 @@ def main():
     columns, series = [], {}
     for fam in FAMILIES:
         for ti, t in enumerate(traits):
-            for p in pops:
+            for p in score_pops:
                 parts = []
                 for c in chroms:
                     if fam == "prscsx_mt":
@@ -119,6 +122,7 @@ def main():
         "families": list(FAMILIES),
         "traits": traits,
         "populations": pops,
+        "score_populations": score_pops,
         "chromosomes": chroms,
         "columns": columns,
         "n_snp": int(len(out)),

@@ -23,14 +23,16 @@ Does PRS-CSx-MT, with or without ridge stacking, predict better in All of Us tha
 
 PRS-CSx-MT gets raw GWAS, never MTAG output. It models cross-trait sharing itself, so MTAG first would count that information twice. PRSxtra and PRS-CSx-MT + ridge have the same number of candidate scores (traits × ancestries), the same tuning participants and the same CV folds. Their difference isolates MTAG + PRS-CSx versus the joint model.
 
-Not reproduced from He et al.: their meta-ancestry (`--meta`) candidate scores (39 vs 32 candidates). They could be added as extra columns in both families.
+Candidates follow He et al.: one score per trait × ancestry plus a cross-ancestry META score per trait, in every family. Two deliberate departures from their inputs (He et al. Supplementary Table 1):
+- **Lung cancer.** He et al. appear to have used Byun et al. 2022's single cross-ancestry meta-analysis (GCST90134661) as the EUR, EAS and AFR GWAS, with no AMR. That counts the same participants once per ancestry. Here every ancestry has its own public GWAS: MVP PheCode 165.1 for EUR (13,065 cases), AFR (2,647) and AMR (624), and Biobank Japan for EAS (4,444). Both methods use the same files, so the comparison stays fair. The grid is complete, so PRS-CSx-MT needs no change.
+- **EUR lung function.** This uses the public Shrine et al. EUR files (N = 475,645). He et al. report N = 422,783.
 
 ## Trait sets
 
 | Set | Candidate traits | Outcomes in All of Us | GWAS sources |
 |---|---|---|---|
 | Lipids | LDL, HDL, TG | LDL, HDL, TG (EHR labs) | Pan-UKBB (EUR, EAS, AFR, AMR) |
-| Respiratory (He et al.) | asthma, COPD, lung cancer, FEV1, FVC, FEV1/FVC, smoking, CPD | asthma, COPD, lung cancer | GBMI; LC-GWMA; GCST90705067–72 (He et al. EAS) + Pan-UKBB/LF-GWMA; GSCAN |
+| Respiratory (He et al.) | asthma, COPD, lung cancer, FEV1, FVC, FEV1/FVC, smoking, CPD | asthma, COPD, lung cancer | GBMI (asthma, COPD); GCST90705067–69 (EAS) + Shrine et al. 2023 (EUR/AFR/AMR) lung function; GSCAN; lung cancer: MVP (EUR/AFR/AMR) + Biobank Japan (EAS) |
 
 Ancestries: AFR, AMR, EAS, EUR (1KG LD panels). PRS-CSx-MT fits the full trait × ancestry grid, so every trait needs a GWAS in every ancestry used. Drop an ancestry rather than leave a gap.
 

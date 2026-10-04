@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--cross_trait", default="mult")
     ap.add_argument("--rho_pheno", type=float)
     ap.add_argument("--n_overlap")
+    ap.add_argument("--meta", action="store_true",
+                    help="also write the inverse-variance-weighted cross-ancestry (META) posterior")
     args = ap.parse_args()
 
     traits = args.traits.split(",")
@@ -80,6 +82,8 @@ def main():
         cmd += ["--n_iter=%d" % args.n_iter, "--n_burnin=%d" % args.n_burnin]
     if seed is not None:
         cmd.append("--seed=%d" % seed)
+    if args.meta:
+        cmd.append("--meta=TRUE")
     if args.method == "prscsx_mt":
         cmd.append("--cross_trait=" + args.cross_trait)
         if args.rho_pheno is not None and args.n_overlap:

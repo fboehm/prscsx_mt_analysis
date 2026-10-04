@@ -59,6 +59,7 @@ fit:
   n_burnin: null
   thin: 5
   seed: 2026           # each chromosome is seeded seed + chrom
+  meta: true           # also a cross-ancestry META score per trait (He et al.'s candidates)
   chromosomes: null    # null -> 1..22; e.g. [22] for a smoke test
   prscsx_mt:
     cross_trait: mult

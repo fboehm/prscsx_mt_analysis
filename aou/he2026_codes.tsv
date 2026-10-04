@@ -1,0 +1,70 @@
+# OMOP source concept IDs from He et al. (2026, Nat Genet) Supplementary Tables 36-40.
+# icd_as_shown is the ICD column as stored in the xlsx (Excel dropped trailing zeros);
+# aou/03_extract_phenotypes.py uses concept_id and looks the true codes up in the CDR.
+outcome	concept_id	icd_as_shown	concept_name
+asthma	44824287	493.0	Extrinsic asthma, unspecified
+asthma	44832423	493.0	Extrinsic asthma
+asthma	44824289	493.1	Intrinsic asthma, unspecified
+asthma	44831279	493.1	Intrinsic asthma
+asthma	44829012	493.2	Chronic obstructive asthma
+asthma	44831280	493.2	Chronic obstructive asthma, unspecified
+asthma	44830115	493.8	Other forms of asthma
+asthma	44826678	493.81	Exercise induced bronchospasm
+asthma	44833611	493.82	Cough variant asthma
+asthma	44821988	493.9	Asthma, unspecified type, unspecified
+asthma	44826679	493.9	Asthma, unspecified
+asthma	1569488	J45	Asthma
+asthma	45572168	J45.2	Mild intermittent asthma
+asthma	45548116	J45.20	Mild intermittent asthma, uncomplicated
+asthma	45576951	J45.30	Mild persistent asthma, uncomplicated
+asthma	45591558	J45.4	Moderate persistent asthma
+asthma	45601133	J45.40	Moderate persistent asthma, uncomplicated
+asthma	45591559	J45.5	Severe persistent asthma
+asthma	45567265	J45.50	Severe persistent asthma, uncomplicated
+asthma	1569490	J45.90	Unspecified asthma
+asthma	45562457	J45.909	Unspecified asthma, uncomplicated
+asthma	1569491	J45.99	Other asthma
+asthma	45586674	J45.990	Exercise induced bronchospasm
+asthma	45586675	J45.991	Cough variant asthma
+asthma	45572171	J45.998	Other asthma
+asthma_exacerbation	44824288	493.01	Extrinsic asthma with status asthmaticus
+asthma_exacerbation	44831278	493.02	Extrinsic asthma with (acute) exacerbation
+asthma_exacerbation	44834769	493.11	Intrinsic asthma with status asthmaticus
+asthma_exacerbation	44837135	493.12	Intrinsic asthma with (acute) exacerbation
+asthma_exacerbation	44820889	493.21	Chronic obstructive asthma with status asthmaticus
+asthma_exacerbation	44837136	493.22	Chronic obstructive asthma with (acute) exacerbation
+asthma_exacerbation	44832424	493.91	Asthma, unspecified type, with status asthmaticus
+asthma_exacerbation	44823144	493.92	Asthma, unspecified type, with (acute) exacerbation
+asthma_exacerbation	45572169	J45.21	Mild intermittent asthma with (acute) exacerbation
+asthma_exacerbation	45572170	J45.22	Mild intermittent asthma with status asthmaticus
+asthma_exacerbation	45548117	J45.31	Mild persistent asthma with (acute) exacerbation
+asthma_exacerbation	45576952	J45.32	Mild persistent asthma with status asthmaticus
+asthma_exacerbation	45543269	J45.41	Moderate persistent asthma with (acute) exacerbation
+asthma_exacerbation	45557626	J45.42	Moderate persistent asthma with status asthmaticus.
+asthma_exacerbation	45567266	J45.51	Severe persistent asthma with (acute) exacerbation
+asthma_exacerbation	45581860	J45.52	Severe persistent asthma with status asthmaticus
+asthma_exacerbation	45601134	J45.901	Unspecified asthma with (acute) exacerbation
+asthma_exacerbation	45543270	J45.902	Unspecified asthma with status asthmaticus
+copd	44832421	491.0	Simple chronic bronchitis
+copd	44837134	491.1	Mucopurulent chronic bronchitis
+copd	44832422	491.2	Obstructive chronic bronchitis without exacerbation
+copd	44835980	491.8	Other chronic bronchitis
+copd	44830114	491.9	Unspecified chronic bronchitis
+copd	44827822	492.0	Emphysematous bleb
+copd	44826677	492.8	Other emphysema
+copd	44829013	496.0	Chronic airway obstruction, not elsewhere classified
+copd	35208014	J41.0	Simple chronic bronchitis
+copd	35208015	J41.1	Mucopurulent chronic bronchitis
+copd	35208016	J41.8	Mixed simple and mucopurulent chronic bronchitis
+copd	35208019	J43.1	Panlobular emphysema
+copd	35208020	J43.2	Centrilobular emphysema
+copd	35208021	J43.8	Other emphysema
+copd	35208022	J43.9	Emphysema, unspecified
+copd	35208025	J44.9	Chronic obstructive pulmonary disease, unspecified
+copd_exacerbation	44821986	491.21	Obstructive chronic bronchitis with (acute) exacerbation
+copd_exacerbation	44825474	491.22	Obstructive chronic bronchitis with acute bronchitis
+copd_exacerbation	35208023	J44.0	Chronic obstructive pulmonary disease with (acute) lower respiratory infection
+copd_exacerbation	35208024	J44.1	Chronic obstructive pulmonary disease with (acute) exacerbation
+lung_cancer	1567486	C34	Malignant neoplasm of bronchus and lung
+lung_cancer	44826401	162.8	Malignant neoplasm of other parts of bronchus or lung
+lung_cancer	44827555	162.9	Malignant neoplasm of bronchus and lung, unspecified

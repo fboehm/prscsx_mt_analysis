@@ -11,14 +11,17 @@ genetic ancestry predictions:
   lipids       LDL, HDL, TG: per-person median of EHR lab values (LOINC), in
                mg/dL, within plausible ranges; `statin` = any statin exposure
                on record. Age at the person's most recent lipid measurement.
-  respiratory  asthma, copd, lung_cancer: 1 = at least --min_code_dates
-               distinct dates with a qualifying ICD-9/10-CM code; 0 = has EHR
-               data and no code. Age at --ref_date.
+  respiratory  asthma, copd, lung_cancer (+ asthma_exacerbation,
+               copd_exacerbation): 1 = at least --min_code_dates distinct dates
+               with a qualifying ICD-9/10-CM code; 0 = has EHR data and no
+               code. Age at --ref_date.
 
-The code lists below are reasonable defaults, NOT He et al.'s definitions:
-replace them with the ICD lists of He et al. Supplementary Tables 36-40 (and
-add their extra criteria, e.g. smoking status for COPD / lung cancer, SERPINA1
-exclusions for COPD) before the final analysis.
+Disease codes are He et al.'s (Supplementary Tables 36-40), stored as OMOP
+source concept IDs in aou/he2026_codes.tsv. The true ICD codes of those
+concepts are looked up in the CDR, and a condition counts if its ICD code
+equals one of them or is a child code (prefix match), as selecting a parent
+code in the All of Us cohort builder does (e.g. C34 -> C34.90). Not yet
+reproduced: He et al.'s SERPINA1 exclusions for COPD.
 
 Ancestry and PCs come from the All of Us genetic ancestry file
 (ancestry_preds.tsv: research_id, ancestry_pred, pca_features) of your CDR
@@ -45,12 +48,8 @@ LIPID_RANGE_MG_DL = {"LDL": (10, 400), "HDL": (5, 200), "TG": (10, 3000)}
 STATINS = ["atorvastatin", "fluvastatin", "lovastatin", "pitavastatin",
            "pravastatin", "rosuvastatin", "simvastatin"]
 
-# Regular expressions on ICD concept codes (dots included as in OMOP).
-DISEASE_ICD = {
-    "asthma":      {"ICD10CM": r"^J45", "ICD9CM": r"^493"},
-    "copd":        {"ICD10CM": r"^J4[34]", "ICD9CM": r"^(491|492|496)"},
-    "lung_cancer": {"ICD10CM": r"^C34", "ICD9CM": r"^162\.[2-9]"},
-}
+DISEASES = ["asthma", "copd", "lung_cancer", "asthma_exacerbation", "copd_exacerbation"]
+CODES_TSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "he2026_codes.tsv")
 
 
 def bq(sql):
@@ -112,12 +111,28 @@ def lipids(cdr):
     return out
 
 
-def diseases(cdr, min_dates, ref_date):
+def disease_prefixes(cdr, codes_tsv):
+    """{outcome: [(vocabulary_id, icd_code), ...]} for He et al.'s concept IDs."""
+    codes = pd.read_csv(codes_tsv, sep="\t", comment="#")
+    ids = ",".join(str(i) for i in codes["concept_id"].unique())
+    look = bq(f"""
+        SELECT concept_id, vocabulary_id, concept_code FROM `{cdr}.concept`
+        WHERE concept_id IN ({ids})
+    """)
+    missing = set(codes["concept_id"]) - set(look["concept_id"])
+    if missing:
+        print("WARNING: %d He et al. concept IDs not in this CDR: %s" % (len(missing), sorted(missing)))
+    codes = codes.merge(look, on="concept_id")
+    return {o: list(zip(g["vocabulary_id"], g["concept_code"])) for o, g in codes.groupby("outcome")}
+
+
+def diseases(cdr, min_dates, ref_date, codes_tsv):
     ehr = bq(f"SELECT person_id FROM `{cdr}.cb_search_person` WHERE has_ehr_data = 1")
     out = ehr.copy()
-    for name, voc in DISEASE_ICD.items():
-        cond = " OR ".join("(c.vocabulary_id = '%s' AND REGEXP_CONTAINS(c.concept_code, r'%s'))"
-                           % (v, rx) for v, rx in voc.items())
+    prefixes = disease_prefixes(cdr, codes_tsv)
+    for name in DISEASES:
+        cond = " OR ".join("(c.vocabulary_id = '%s' AND STARTS_WITH(c.concept_code, '%s'))"
+                           % (v, code) for v, code in prefixes[name])
         cases = bq(f"""
             SELECT co.person_id, COUNT(DISTINCT co.condition_start_date) AS n_dates
             FROM `{cdr}.condition_occurrence` co
@@ -146,6 +161,7 @@ def main():
     ap.add_argument("--min_code_dates", type=int, default=1,
                     help="distinct code dates needed to call a case (1 or 2 are common)")
     ap.add_argument("--n_pcs", type=int, default=16)
+    ap.add_argument("--codes", default=CODES_TSV, help="disease concept IDs (default: He et al.)")
     args = ap.parse_args()
     if not args.cdr:
         raise SystemExit("No CDR dataset: run in the Workbench or pass --cdr")
@@ -153,7 +169,7 @@ def main():
     demo = demographics(args.cdr)
     anc = ancestry(args.ancestry_preds, args.n_pcs)
     ph = (lipids(args.cdr) if args.trait_set == "lipids"
-          else diseases(args.cdr, args.min_code_dates, args.ref_date))
+          else diseases(args.cdr, args.min_code_dates, args.ref_date, args.codes))
 
     df = anc.merge(demo, on="person_id").merge(ph, on="person_id")
     df["age"] = (df["age_date"] - df["birth_datetime"]).dt.days / 365.25
@@ -161,7 +177,7 @@ def main():
     df = df[df["sex"].notna() & df["age"].between(18, 110)]
     df.to_csv(args.out, sep="\t", index=False)
 
-    outcome_cols = list(LIPID_LOINC) if args.trait_set == "lipids" else list(DISEASE_ICD)
+    outcome_cols = list(LIPID_LOINC) if args.trait_set == "lipids" else DISEASES
     print("%d participants with genetic ancestry and phenotypes -> %s" % (len(df), args.out))
     for o in outcome_cols:
         sub = df[df[o].notna()]

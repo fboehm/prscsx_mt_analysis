@@ -143,7 +143,9 @@ run_cell <- function(dat, outcome, spec, anc, split_id) {
 
   tpop <- if (anc %in% pops) anc else pop_map[[anc]]
   mtrait <- spec$matched_trait
-  stacks <- list(prsxa = col_of("prscsx", mtrait, pops),
+  # PRSxa: the target trait's PRS-CSx scores across ancestries (+ META if present)
+  prsxa_cols <- intersect(col_of("prscsx", mtrait, c(pops, "META")), names(dat))
+  stacks <- list(prsxa = prsxa_cols,
                  prsxtra = all_of("mtag_prscsx"),
                  prscsx_mt_ridge = all_of("prscsx_mt"))
   untuned <- if (is.null(tpop)) list() else

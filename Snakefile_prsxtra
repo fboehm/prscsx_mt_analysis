@@ -14,7 +14,9 @@ Three families of candidate scores, one score per trait x ancestry each:
   prscsx        PRS-CSx per trait on the raw GWAS (for the PRSxa / PRS-CSx benchmarks)
 
 Every family uses the same LD reference, SNP set (bim_prefix), phi setting,
-MCMC length and seed. Stage B stacks them identically.
+MCMC length and seed. Stage B stacks them identically. With fit.meta (default
+true) each family also gets a cross-ancestry META score per trait, as in He et
+al.'s 39 PRSxtra candidates.
 
 DAG
   download_snpinfo, download_ldblk, make_proxy_bim, download_chain, liftover_hm3
@@ -123,6 +125,8 @@ def fit_args():
         a += [f"--n_iter {FIT['n_iter']}", f"--n_burnin {FIT['n_burnin']}"]
     if FIT.get("seed") is not None:
         a.append(f"--seed {FIT['seed']}")
+    if FIT.get("meta", True):
+        a.append("--meta")
     return " ".join(a)
 
 
@@ -135,6 +139,7 @@ def mt_args():
     return " ".join(a)
 
 
+META_FLAG  = "--meta" if FIT.get("meta", True) else ""
 TRAITS_CSV = ",".join(TRAITS)
 POPS_CSV   = ",".join(POPS)
 CHROMS_CSV = ",".join(map(str, CHROMS))
@@ -365,7 +370,7 @@ rule build_candidates:
     resources: mem_mb=16000
     shell:
         "{PYQ} {SCRIPTSQ}/build_candidates.py --fit_dir {OUT_DIRQ}/fits --name {NAMEQ} "
-        "--traits {TRAITS_CSV} --pops {POPS_CSV} --chroms {CHROMS_CSV} --snpinfo {input.snpinfo:q} "
+        "--traits {TRAITS_CSV} --pops {POPS_CSV} --chroms {CHROMS_CSV} {META_FLAG} --snpinfo {input.snpinfo:q} "
         "--mtag_summary {input.mtag_summary:q} --qc {input.qc:q} --config_json {params.cfg} "
         "--out {output.weights:q} --manifest {output.manifest:q}"
 

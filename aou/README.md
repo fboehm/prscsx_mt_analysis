@@ -9,6 +9,9 @@ It compares PRS-CSx-MT, untuned and with ridge stacking, against PRSxtra
 | `config_prsxtra_lipids.yaml` | LDL, HDL, TG (Pan-UKBB) | LDL, HDL, TG (EHR labs) |
 | `config_prsxtra_respiratory.yaml` | asthma, COPD, lung cancer, FEV1, FVC, FEV1/FVC, smoking, CPD | asthma, COPD, lung cancer |
 
+Each family has one score per trait × ancestry plus a cross-ancestry META
+score per trait (PRS-CSx `--meta`), matching He et al.'s candidate set.
+
 ## Methods
 
 Every method gets the same LD reference, SNP set, phi setting, MCMC length,
@@ -32,8 +35,9 @@ the tuning sample.
 # lipids: Pan-UKBB is downloaded automatically
 snakemake -s Snakefile_prsxtra --configfile config_prsxtra_lipids.yaml --cores 8
 
-# respiratory: first put the raw GWAS files at the configured paths, check
-# their column names, and fill every `n` (cases/controls for binary traits)
+# respiratory: download the public GWAS first (GBMI, He et al. EAS lung function,
+# Shrine et al. 2023, GSCAN, MVP + Biobank Japan lung cancer; ~12 GB)
+python scripts/download_respiratory_gwas.py          # --list shows the plan
 snakemake -s Snakefile_prsxtra --configfile config_prsxtra_respiratory.yaml --cores 8
 
 # on Slurm
@@ -116,10 +120,10 @@ all-HM3 proxy.
 
 ### Before the final analysis
 
-- **Phenotype codes:** `03_extract_phenotypes.py` uses default ICD and LOINC
-  code lists. Replace the disease codes with He et al.'s (Supplementary Tables
-  36–40), and add their extra criteria: smoking status for COPD and lung cancer,
-  SERPINA1 exclusions for COPD.
+- **Phenotype codes:** disease outcomes use He et al.'s concept IDs
+  (Supplementary Tables 36–40, in `aou/he2026_codes.tsv`) with child codes
+  included. Not yet reproduced: their SERPINA1 exclusions for COPD and the
+  smoking-status subgroups.
 - **Statin flag:** the flag is "ever exposed", not "on a statin at the time of
   the measurement". The LDL adjustment divides by 0.7 for flagged participants.
 - **Age:** for lipids, age is taken at the latest measurement. For diseases it
