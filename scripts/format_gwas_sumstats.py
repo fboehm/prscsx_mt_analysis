@@ -116,6 +116,10 @@ def main():
     for df in reader:
         df = df.rename(columns={v: k for k, v in want.items()})
         n_raw += len(df)
+        # Non-numeric missing codes (e.g. MVP's "#NA") -> NaN, dropped below.
+        for k in ("beta", "or", "log_or", "z", "se", "p", "n", "n_case", "n_ctrl", "eaf", "info"):
+            if k in df:
+                df[k] = pd.to_numeric(df[k], errors="coerce")
         df["a1"] = df["a1"].astype(str).str.upper()
         df["a2"] = df["a2"].astype(str).str.upper()
         df = df[df["a1"].isin(ATGC) & df["a2"].isin(ATGC)]
