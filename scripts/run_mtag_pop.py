@@ -22,7 +22,7 @@ so beta_std = mtag_z / sqrt(N_eff), the standardized MTAG effect. (MTAG's own
 log divides the GWAS mean chi2 by the LDSC intercept; this uses the raw mean
 chi2 over the SNPs MTAG kept.)
 
-MTAG input columns: snpid chr bpos a1 a2 freq z n. chr/bpos come from the HM3
+MTAG input columns: snpid chr bpos a1 a2 freq z n p. chr/bpos come from the HM3
 reference; freq is the 1KG frequency of a1 in this ancestry (MTAG uses it only
 to unstandardize mtag_beta, which is not used here).
 """
@@ -35,6 +35,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 
 def read_sst(path):
@@ -90,7 +91,10 @@ def main():
         mean_chi2[t] = float((m["z"] ** 2).mean())
         out = pd.DataFrame({"snpid": m["SNP"], "chr": m["CHR"], "bpos": m["BP"],
                             "a1": m["A1"], "a2": m["A2"], "freq": m["freq"],
-                            "z": m["z"], "n": n})
+                            "z": m["z"], "n": n,
+                            # MTAG's munge step requires a p column even when it
+                            # uses z; ldsc's munge drops p = 0, hence the clip.
+                            "p": np.clip(2 * norm.sf(np.abs(m["z"])), 1e-300, 1.0)})
         path = os.path.join(work, "%s.mtag_in.txt" % t)
         out.to_csv(path, sep="\t", index=False)
         mtag_in[t] = path
