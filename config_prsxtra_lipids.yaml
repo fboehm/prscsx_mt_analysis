@@ -70,7 +70,7 @@ fit:
 # https://github.com/JonJala/mtag  -- needs Python 2.7 (conda env from its
 # environment.yml). Run per ancestry, with that ancestry's LD scores.
 mtag:
-  python: "python2.7"
+  python: "/mmfs1/home/jacks.local/frederick.boehm/.conda/envs/mtag/bin/python"   # conda env "mtag" (Python 2.7) on the jacks cluster
   dir: "tools/mtag"
   min_mean_chi2: 1.02  # He et al.: weaker traits keep their raw GWAS
   ld_ref_panel:        # ldsc --ref-ld-chr style folders (chromosome-split)
