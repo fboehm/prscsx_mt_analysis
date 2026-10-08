@@ -10,6 +10,23 @@
 #
 # Before using any GWAS, confirm it does not include All of Us participants;
 # the evaluation assumes All of Us is independent of discovery.
+#
+# Checked 2026-10-07: no GWAS below includes All of Us as a cohort.
+#   asthma, copd     GBMI: 18 biobanks (CKB, GS, Lifelines, QSKIN, GNH, HUNT,
+#                    UCLA, CCPM, MGB, BioVU, BioMe, MGI, BBJ, ESTBB, deCODE,
+#                    FinnGen, TWB, UKBB); Tsuo et al. 2022 Methods (PMC9903683)
+#   fev1/fvc/ratio   EUR Shrine 2023, 31 cohorts (UKB, ARIC, CHS, FHS, MESA,
+#                    HUNT, QBB, ...); AFR/AMR UKB only; EAS KCPS-II + TWB
+#                    (GWAS Catalog cohort field)
+#   lung_cancer      EUR/AFR/AMR MVP only; EAS BBJ (GWAS Catalog cohort field)
+#   smoking, cpd     GSCAN 2022, 60 cohorts (UKB, HUNT, deCODE, GERA, HRS, WHI,
+#                    eMERGE, PAGE, BBJ, ~28 TOPMed studies, ...; 23andMe removed);
+#                    "All of Us" absent from full text, Suppl. Table 1 and
+#                    supplementary PDFs (PMC9771818)
+# Residual: individuals may be enrolled in both All of Us and a US discovery
+# cohort (GBMI's BioVU/BioMe/MGB/MGI/UCLA/CCPM, MVP, US cohorts in GSCAN and
+# Shrine). Not quantifiable without IDs; expected to be a small fraction of
+# All of Us. Note as a limitation. Non-US cohorts cannot overlap.
 
 analysis_name: respiratory
 
