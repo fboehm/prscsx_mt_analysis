@@ -122,32 +122,43 @@ def main():
             results[t] = res
 
     with open(os.path.join(args.out_dir, "summary_%s.tsv" % pop), "w") as summ:
-        summ.write("pop\ttrait\tused_mtag\tmean_chi2_gwas\tmean_chi2_mtag\tn_gwas\tn_eff\tn_snp\n")
+        summ.write("pop\ttrait\tused_mtag\tmean_chi2_gwas\tmean_chi2_mtag\tn_gwas\tn_eff\tn_snp\tnote\n")
         for t in traits:
             dst = os.path.join(args.out_dir, "%s_%s.txt" % (t, pop))
             df, n = gwas[t]
+            chi_m = None
             if t in results:
                 res = results[t]
                 z_m = res[col(res, "mtag_z")].to_numpy(float)
                 z_g = res[col(res, "z")].to_numpy(float)
-                chi_m, chi_g = float(np.mean(z_m ** 2)), float(np.mean(z_g ** 2))
+                ok = np.isfinite(z_m) & np.isfinite(z_g)
+                chi_m, chi_g = float(np.mean(z_m[ok] ** 2)), float(np.mean(z_g[ok] ** 2))
+            # MTAG output with mean chi2 <= 1 has no usable signal and gives
+            # N_eff <= 0 (seen in AFR, where several traits share one small,
+            # low-powered sample); keep the raw GWAS instead.
+            if chi_m is not None and chi_m > 1.0 and chi_g > 1.0:
                 n_eff = int(round(n * (chi_m - 1.0) / (chi_g - 1.0)))
                 out = pd.DataFrame({"SNP": res[col(res, "SNP", "snpid")],
                                     "A1": res[col(res, "A1")].str.upper(),
                                     "A2": res[col(res, "A2")].str.upper(),
-                                    "BETA": z_m, "SE": 1.0})
+                                    "BETA": z_m, "SE": 1.0})[ok]
                 out.to_csv(dst, sep="\t", index=False, float_format="%.6g")
-                summ.write("%s\t%s\tTrue\t%.4f\t%.4f\t%d\t%d\t%d\n"
+                summ.write("%s\t%s\tTrue\t%.4f\t%.4f\t%d\t%d\t%d\t\n"
                            % (pop, t, chi_g, chi_m, n, n_eff, len(out)))
                 print("%s %s: MTAG mean chi2 %.3f -> %.3f, N %d -> N_eff %d"
                       % (pop, t, chi_g, chi_m, n, n_eff))
             else:
                 shutil.copyfile(os.path.join(args.sst_dir, "%s_%s.txt" % (t, pop)), dst)
                 n_eff = n
-                why = ("mean chi2 %.4f <= %.2f" % (mean_chi2[t], args.min_mean_chi2)
-                       if t not in passing else "fewer than 2 traits pass the chi2 filter")
-                summ.write("%s\t%s\tFalse\t%.4f\tNA\t%d\t%d\t%d\n"
-                           % (pop, t, mean_chi2[t], n, n, len(df)))
+                if chi_m is not None:
+                    why = "MTAG mean chi2 %.4f <= 1" % chi_m
+                elif t not in passing:
+                    why = "mean chi2 %.4f <= %.2f" % (mean_chi2[t], args.min_mean_chi2)
+                else:
+                    why = "fewer than 2 traits pass the chi2 filter"
+                summ.write("%s\t%s\tFalse\t%.4f\t%s\t%d\t%d\t%d\t%s\n"
+                           % (pop, t, mean_chi2[t], "NA" if chi_m is None else "%.4f" % chi_m,
+                              n, n, len(df), why))
                 print("%s %s: raw GWAS passed through (%s)" % (pop, t, why))
             with open(dst[:-len(".txt")] + ".n", "w") as fh:
                 fh.write("%d\n" % n_eff)
