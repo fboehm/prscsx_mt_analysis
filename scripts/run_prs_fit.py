@@ -91,7 +91,9 @@ def main():
 
     os.makedirs(args.out_dir, exist_ok=True)
     print(" ".join(cmd), flush=True)
-    sys.exit(subprocess.call(cmd))
+    # Unbuffered so PRScsx's per-iteration progress reaches the log even if
+    # SLURM kills the job (block-buffered output is lost on TIMEOUT).
+    sys.exit(subprocess.call(cmd, env=dict(os.environ, PYTHONUNBUFFERED="1")))
 
 
 if __name__ == "__main__":
