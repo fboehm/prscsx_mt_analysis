@@ -34,3 +34,7 @@ underrep_rescue_output/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Chain-length check outputs (cluster)
+sim_sweep/chain_length/out/
+sim_sweep/chain_length/logs/
