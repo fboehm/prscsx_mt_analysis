@@ -73,6 +73,29 @@ All fits share the LD reference, SNP set (`bim_prefix`), phi (auto), MCMC length
    - Optional repeated splits as a robustness check (not independent replicates).
    - Counts below 20 are masked before export.
 
+### Departures from He et al.'s stacking and evaluation
+
+Checked against their Methods ("PRSxtra construction") and their scripts
+(`github.com/yixuanh/lung-mutitrait-multiancestry`, commit e730158; Zenodo 17452013). The scripts
+are generalized templates that do not run as posted (undefined objects, a syntax error, a PRS-CSx
+`--pop` order that doesn't match the summary-statistics order), so they show the design but cannot
+reproduce the paper's numbers. They agree with this pipeline on: PRS-CSx at its defaults (`a`=1,
+`b`=0.5, φ auto, `--meta=True`); ridge via `cv.glmnet(alpha = 0, nfolds = 10)` with `lambda.min`;
+weights fit separately per ancestry. They do not include the code that made the 70/30 split.
+
+Two deliberate differences, to be stated in the paper's methods:
+- **Covariates in the ridge.** He et al. fit the ridge on the standardized PRS columns only
+  (`regularization.R`). Here age, sex and PC1–10 enter the ridge unpenalized and the score is the
+  PRS part of the linear predictor, so the weights are not confounded by covariates. Applied the
+  same way to every stacked method (PRSxtra, PRSxa, PRS-CSx-MT + ridge), so the comparison stays
+  fair, but our PRSxtra is not exactly theirs. Possible sensitivity check: PRSxtra as published
+  (PRS-only ridge).
+- **Evaluation model.** He et al. (`prediction_COPD_PRSxtra.R`) report AUC of the PRS alone and of
+  `glm(phenotype ~ age + gender [+ smoking status] + PRS)` fit and scored on the same validation
+  set, with no PCs. Here: incremental R² (continuous) or AUC and OR per SD (binary), adjusting for
+  age, sex and PC1–10, with paired bootstrap / DeLong contrasts. Numbers are therefore not directly
+  comparable with their published tables.
+
 ## Primary and secondary contrasts
 
 Primary, per ancestry × outcome:
