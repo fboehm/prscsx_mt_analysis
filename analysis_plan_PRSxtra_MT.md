@@ -96,6 +96,13 @@ Two deliberate differences, to be stated in the paper's methods:
   age, sex and PC1–10, with paired bootstrap / DeLong contrasts. Numbers are therefore not directly
   comparable with their published tables.
 
+A third, smaller difference: our split is stratified within ancestry and case status; theirs was
+a single unstratified random split (inferred from their Supplementary Table 15).
+
+**Deferred sensitivity check (not implemented):** rerun PRSxtra as He et al. did it, with a
+PRS-only ridge and/or an unstratified split, to show the differences above don't drive the
+comparison. Decide after the main All of Us results are in.
+
 ## Primary and secondary contrasts
 
 Primary, per ancestry × outcome:
