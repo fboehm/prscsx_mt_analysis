@@ -54,7 +54,7 @@ def generate_test_data(out_dir, scenario_name, pop_labels=None, n_snp=200, n_cau
 
 def run_prscsx_mt(ref_dir, bim_prefix, sst_files, n_gwas, pop_labels,
                   out_dir, out_name, n_trait=1, rho_pheno=None,
-                  n_overlap=None, lambda_psi=1.0, n_iter=500,
+                  n_overlap=None, lambda_psi=None, n_iter=500,
                   n_burnin=250, seed=42):
     """Run PRS-CSx-MT programmatically (without subprocess)."""
     print('\n' + '-'*40)

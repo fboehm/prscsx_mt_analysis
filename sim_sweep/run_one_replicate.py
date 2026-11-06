@@ -228,7 +228,7 @@ def _run_prscsx_mt(ref_dir, bim_prefix, sst_files_dict, n_gwas_dict,
         n_gwas_dict, ld_blk, blk_size,
         n_iter, n_burnin, 5, pop_labels, chrom,
         out_dir, out_name, 'FALSE', 'FALSE', seed,
-        n_trait=n_trait, rho_e=rho_e, lambda_psi=1.0)
+        n_trait=n_trait, rho_e=rho_e, lambda_psi=None)
 
 
 # ── evaluation ────────────────────────────────────────────────────────────────

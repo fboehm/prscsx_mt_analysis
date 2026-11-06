@@ -137,7 +137,7 @@ def run_prscsx_mt(ref_dir, bim_prefix, sst_files, n_gwas, pop_labels,
         n_gwas_dict, ld_blk, blk_size,
         n_iter, n_burnin, 5, pop_labels, chrom,
         out_dir, out_name, 'FALSE', 'FALSE', seed,
-        n_trait=n_trait, rho_e=None, lambda_psi=1.0)
+        n_trait=n_trait, rho_e=None, lambda_psi=None)
 
 
 def evaluate_accuracy(out_dir, out_name, data_dir, pop_labels, n_trait, method_name, is_mt=False, single_trait_idx=None):
