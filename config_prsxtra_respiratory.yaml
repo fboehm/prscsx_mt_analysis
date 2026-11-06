@@ -201,7 +201,8 @@ aou:
     copd:        {type: binary, matched_trait: copd}
     lung_cancer: {type: binary, matched_trait: lung_cancer}
   covariates: [age, sex, PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10]
-  tune_frac: 0.7
+  tune_frac: 0.7       # 70/30 as in He et al. (one random split of all participants); the split
+                       # within each ancestry and within cases/controls is this pipeline's choice
   n_splits: 1
   n_boot: 1000
   min_group_n: 200

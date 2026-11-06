@@ -66,7 +66,7 @@ All fits share the LD reference, SNP set (`bim_prefix`), phi (auto), MCMC length
    - Diseases: ICD-9/10 codes. **Replace the default code lists with He et al. Supplementary Tables 36–40**, and add their smoking-status and SERPINA1 criteria.
    - Ancestry groups and PCs come from the All of Us `ancestry_preds.tsv`.
 4. **Stack and evaluate** (`aou/04_stack_evaluate.R`):
-   - Within each ancestry: 70/30 tuning/validation split, stratified by case status.
+   - Within each ancestry: 70/30 tuning/validation split, stratified by case status. (He et al. used the same 70/30 ratio but a single random split of all participants; the within-ancestry and case-status stratification is our addition.)
    - Ridge: `cv.glmnet(alpha = 0)`, 10-fold, `lambda.min`; covariates (age, sex, PC1–10) unpenalized.
    - Continuous outcomes: incremental R² over covariates, with paired-bootstrap contrasts.
    - Binary outcomes: AUC, with paired DeLong contrasts, and OR per SD.
