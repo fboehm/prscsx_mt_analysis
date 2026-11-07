@@ -17,9 +17,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 #SBATCH --job-name=prscsx_mt_sweep
-#SBATCH --time=03:00:00           # each task now runs 2 phi arms x (per-trait PRS-CSx + PRS-CSx-MT)
-#SBATCH --mem=8G
+#SBATCH --time=02:00:00
+#SBATCH --mem=5G
 #SBATCH --cpus-per-task=1
+# Each task runs 2 phi arms x (per-trait PRS-CSx + PRS-CSx-MT). The two requests
+# above are flat for every scenario, because this path has no per-scenario
+# scaling -- unlike the Snakemake profile, which at 5000/2000 asks 55 min / 3.0 GB
+# for 45 of the 49 scenarios and 115 min / 4.5 GB for the one with
+# n_trait x n_pop = 10. The flat 2 h / 5G covers that worst case with margin:
+# the 2026-11-06 pilot measured mean 13.2 min, max 29.3 min and peak max_rss
+# 0.8 GB over all 49 scenarios. The old 03:00:00 / 8G was sized for 1000/500.
 #SBATCH --output=logs/%x_%a.out    # %x = job name, so sweep/prsxtra logs don't collide
 #SBATCH --error=logs/%x_%a.err
 
@@ -39,6 +46,18 @@ PYTHON="${PYTHON:-/mmfs1/home/jacks.local/frederick.boehm/.conda/envs/prscsx/bin
 # doesn't point here — use the submit directory (where `sbatch` was run) instead,
 # falling back to the script location when run outside Slurm.
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+
+# ── grid settings ───────────────────────────────────────────────────────
+# Read from config.yaml, which the Snakemake path already uses, so the two launch
+# paths cannot drift apart again (they did: this script hardcoded 1000/500 after
+# the 2026-11-06 chain-length check moved the sweep to 5000/2000). The literals
+# are only a fallback for an unreadable or reformatted config. Override either
+# per submission:  N_ITER=1000 N_BURNIN=500 sbatch --array=... submit_jobs.sh
+_cfg() { sed -n "s/^$1:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "${SCRIPT_DIR}/config.yaml" | head -1; }
+N_SNP="${N_SNP:-$(_cfg n_snp)}";          N_SNP="${N_SNP:-2000}"
+N_ITER="${N_ITER:-$(_cfg n_iter)}";       N_ITER="${N_ITER:-5000}"
+N_BURNIN="${N_BURNIN:-$(_cfg n_burnin)}"; N_BURNIN="${N_BURNIN:-2000}"
+echo "Grid: n_snp=${N_SNP} n_iter=${N_ITER} n_burnin=${N_BURNIN}"
 
 # MODE selects the runner: 'sweep' (run_one_replicate.py, default) or
 # 'prsxtra' (compare_prsxtra.py). Each mode has its own job list and results dir.
@@ -74,18 +93,18 @@ if [ "${MODE}" = "prsxtra" ]; then
         --scenarios_file "${SCRIPT_DIR}/scenarios.json"   \
         --out_dir        "${RESULTS_DIR}"                  \
         --phi            "${PHI:-auto}"                    \
-        --n_snp          2000                              \
-        --n_iter         1000                              \
-        --n_burnin       500
+        --n_snp          "${N_SNP}"                        \
+        --n_iter         "${N_ITER}"                       \
+        --n_burnin       "${N_BURNIN}"
 else
     "${PYTHON}" "${SCRIPT_DIR}/run_one_replicate.py" \
         --scenario_name  "${SCENARIO_NAME}"               \
         --seed           "${SEED}"                         \
         --scenarios_file "${SCRIPT_DIR}/scenarios.json"   \
         --out_dir        "${RESULTS_DIR}"                  \
-        --n_snp          2000                              \
-        --n_iter         1000                              \
-        --n_burnin       500
+        --n_snp          "${N_SNP}"                        \
+        --n_iter         "${N_ITER}"                       \
+        --n_burnin       "${N_BURNIN}"
 fi
 
 EXIT_CODE=$?

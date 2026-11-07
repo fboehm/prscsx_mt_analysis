@@ -7,8 +7,16 @@ n_replicates: 30        # seeds 1..n_replicates per scenario (matches the manual
 
 # ── per-replicate simulation settings (mirror submit_jobs.sh) ────────────────
 n_snp:    2000
-n_iter:   1000
-n_burnin: 500
+# Chain length settled by the 2026-11-06 chain-length check (160 cluster tasks:
+# 4 scenarios x 5 seeds x 2 methods x {1000, 5000, 10000, 20000} iterations).
+# 1000/500 is biased low -- MT -0.008 at h2=0.1 (~4 se), EAS rgfrac
+# -0.002..-0.005 for both methods -- while 5000/2000 lands within 0.003 of the
+# 20000-iteration reference everywhere, and 10000 adds almost nothing. Applies
+# to both methods, and to the prsxtra target, which reads the same two values.
+# The header above is now only half true: submit_jobs.sh, the manual
+# sbatch-array path, still hardcodes 1000/500.
+n_iter:   5000          # was 1000
+n_burnin: 2000          # was 500
 
 # ── simulator fidelity ───────────────────────────────────────────────────────
 # 'realistic' : each population gets its own LD; the LD reference handed to
@@ -39,12 +47,25 @@ prscsx_dir:    "/scratch/jacks.local/frederick.boehm/prscsx-mt-project/PRScsx"  
 
 # ── Slurm resource scaling ───────────────────────────────────────────────────
 # Effective request = base + per_unit × (n_trait × n_pop), then × retry attempt.
-# Defaults give a 2-trait/2-pop replicate ~90 min / 8 GB (as in submit_jobs.sh)
-# and a 5-trait/2-pop replicate ~180 min / 14 GB.
-runtime_base_min:     30
-runtime_per_unit_min: 15
-mem_base_mb:          4000
-mem_per_unit_mb:      1000
+# Sized from the 2026-11-06 pilot's MEASURED wall times at n_iter=5000 (49
+# replicates, results_v2/*/seed_1/benchmark.tsv): mean 13.2 min, max 29.3 min,
+# zero timeouts or retries -- about 1 + 2.8 x units minutes. The values below ask
+# 35 min at 2 units, 55 at 4 (45 of the 49 scenarios), 75 at 6 and 115 at 10,
+# i.e. ~4x the measured times, and the slurm profile doubles them on each retry.
+# Total for the 1470-replicate sweep: ~324 core-hours.
+# The pilot ran with 60/75, which asked 6.0 h for a 12-minute job; the 30/15
+# before that came from a stale ~90 min estimate for 1000/500. Keeping the
+# requests short also lets most jobs schedule on the quickq partition.
+runtime_base_min:     15          # was 60 at the pilot, 30 before that
+runtime_per_unit_min: 10          # was 75 at the pilot, 15 before that
+# Memory measured on the 2026-11-06 pilot: peak max_rss was 0.8 GB across all 49
+# scenarios (results_v2/*/seed_1/benchmark.tsv, column 3, in MB), so the former
+# 4000/1000 pair over-requested by ~10x and would have slowed scheduling across
+# 1470 jobs. These give 2.5 GB at 2 units up to 4.5 GB at 10 units, i.e. 3-5x
+# the observed peak, and the profile doubles them on a retry. Note snakemake
+# samples RSS periodically, so a very short spike could be missed.
+mem_base_mb:          2000          # was 4000
+mem_per_unit_mb:      250           # was 1000
 
 # ── PRS-CSx-MT vs PRSxtra (target: snakemake ... prsxtra) ─────────────────────
 prsxtra_groups:    [rg_frac_grid]   # scenario groups to run the comparison on
