@@ -17,8 +17,13 @@ sim_sweep/all_results.csv
 sim_sweep/deltas.csv
 # PRSxtra per-replicate tree (commit sim_sweep/all_results_prsxtra.csv + analysis_prsxtra/ instead)
 sim_sweep/results_prsxtra/
-# Alternative sweep trees (results_v2/ etc.) — same deal
-sim_sweep/results_v*/
+# Alternative sweep trees (results_v2/ etc.): ignore the per-replicate tree, but
+# keep the collected CSVs trackable -- the Snakefile writes them inside the
+# results tree so runs can't clobber each other. A plain `dir/` exclude cannot be
+# re-included by a later negation, hence the `/**` form.
+sim_sweep/results_v*/**
+!sim_sweep/results_v*/all_results.csv
+!sim_sweep/results_v*/deltas*.csv
 
 # Real-data inputs / tools / outputs (large, regenerable)
 data/
