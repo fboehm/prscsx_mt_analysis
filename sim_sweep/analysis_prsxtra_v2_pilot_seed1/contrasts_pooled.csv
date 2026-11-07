@@ -1,0 +1,13 @@
+phi,trait,pop,contrast,n_seeds,mean,se,ci_lo,ci_hi,p,win_rate
+auto,all,EUR,mt_ridge_vs_prsxtra,1,0.004038224602104536,nan,nan,nan,nan,1.0
+auto,all,EUR,mt_vs_prsxtra,1,-0.0030032219960607256,nan,nan,nan,nan,0.0
+auto,all,EUR,mtag_in_stack,1,-0.00010134949888346956,nan,nan,nan,nan,0.0
+auto,all,EUR,mtag_alone,1,0.00014309083369624888,nan,nan,nan,nan,1.0
+auto,all,EUR,mt_alone,1,0.0038289473944904495,nan,nan,nan,nan,1.0
+auto,all,EUR,stacking_on_mt,1,0.007041446598165262,nan,nan,nan,nan,1.0
+auto,all,EAS,mt_ridge_vs_prsxtra,1,0.006806311305834161,nan,nan,nan,nan,1.0
+auto,all,EAS,mt_vs_prsxtra,1,-0.020567528924439627,nan,nan,nan,nan,0.0
+auto,all,EAS,mtag_in_stack,1,9.984486121899393e-05,nan,nan,nan,nan,1.0
+auto,all,EAS,mtag_alone,1,0.0016563690750002768,nan,nan,nan,nan,1.0
+auto,all,EAS,mt_alone,1,0.013040354948402277,nan,nan,nan,nan,1.0
+auto,all,EAS,stacking_on_mt,1,0.027373840230273786,nan,nan,nan,nan,1.0

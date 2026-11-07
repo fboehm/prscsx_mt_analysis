@@ -1,0 +1,9 @@
+- Scenarios in group `rg_frac_grid`: 25; seeds 1..1; phi values found: auto
+- Replicates present: **25 / 25**
+
+Headline (pooled over grid): PRS-CSx-MT + ridge − PRSxtra
+  phi=auto  EUR   Δ=+0.0040  [+nan, +nan]  p=—  win=100%
+  phi=auto  EAS   Δ=+0.0068  [+nan, +nan]  p=—  win=100%
+
+Wrote report.md, CSV tables -> /mmfs1/scratch/jacks.local/frederick.boehm/prscsx-mt-project/prscsx_mt_analysis/sim_sweep/analysis_prsxtra_v2
+(matplotlib not available: figures skipped)
