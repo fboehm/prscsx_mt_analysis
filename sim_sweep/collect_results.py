@@ -73,24 +73,34 @@ def pair_deltas(all_rows, metric='corr'):
     on the requested metric column ('corr' = effect recovery, 'corr_pred' =
     out-of-sample prediction). Rows where the metric is blank/absent (e.g.
     corr_pred under analytic sim_mode) are skipped."""
-    cells = defaultdict(dict)   # key -> {method: value}
+    cells = defaultdict(dict)   # key -> {method: (value, a, a_tuned)}
     for r in all_rows:
         raw = r.get(metric, '')
         if raw is None or raw == '':
             continue
         key = (r['scenario'], r['group'], r['rg'], r['frac_shared_causal'],
                r['pop'], r['trait'], r['phi_mode'], r['seed'])
-        cells[key][r['method']] = _f(raw)
+        cells[key][r['method']] = (_f(raw), r.get('a', ''), r.get('a_tuned', ''))
     deltas = []
     for key, mv in cells.items():
         if BASELINE in mv and MT in mv:
             scenario, group, rg, frac, pop, trait, phi_mode, seed = key
+            (v_st, a_st, t_st), (v_mt, a_mt, t_mt) = mv[BASELINE], mv[MT]
             deltas.append({
                 'scenario': scenario, 'group': group, 'rg': rg,
                 'frac_shared_causal': frac, 'pop': pop, 'trait': trait,
                 'phi_mode': phi_mode, 'seed': seed,
-                'corr_prscsx': mv[BASELINE], 'corr_prscsx_mt': mv[MT],
-                'delta': mv[MT] - mv[BASELINE],
+                'corr_prscsx': v_st, 'corr_prscsx_mt': v_mt,
+                'delta': v_mt - v_st,
+                # Which sparsity prior each arm was using, so a tuned sweep's
+                # deltas can be read without joining back to all_results.csv.
+                # Empty for trees written before --a_grid existed.
+                'a_prscsx': a_st, 'a_prscsx_mt': a_mt,
+                # One flag per cell: TRUE only if both arms were tuned. Tuning is
+                # per phi arm, not per method, so the two agree by construction --
+                # a disagreement means the inputs are mixed and should be checked.
+                'a_tuned': ('TRUE' if (t_st == 'TRUE' and t_mt == 'TRUE')
+                            else ('' if not (t_st or t_mt) else 'FALSE')),
             })
     return deltas
 
@@ -102,7 +112,8 @@ def _mean(xs):
 
 def write_deltas(deltas, path):
     cols = ['scenario', 'group', 'rg', 'frac_shared_causal', 'pop', 'trait',
-            'phi_mode', 'seed', 'corr_prscsx', 'corr_prscsx_mt', 'delta']
+            'phi_mode', 'seed', 'corr_prscsx', 'corr_prscsx_mt', 'delta',
+            'a_prscsx', 'a_prscsx_mt', 'a_tuned']
     with open(path, 'w', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
