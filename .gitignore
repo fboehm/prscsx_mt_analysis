@@ -17,6 +17,7 @@ sim_sweep/all_results.csv
 sim_sweep/deltas.csv
 # PRSxtra per-replicate tree (commit sim_sweep/all_results_prsxtra.csv + analysis_prsxtra/ instead)
 sim_sweep/results_prsxtra/
+sim_sweep/results_v2/
 # Alternative sweep trees (results_v2/ etc.): ignore the per-replicate tree, but
 # keep the collected CSVs trackable -- the Snakefile writes them inside the
 # results tree so runs can't clobber each other. A plain `dir/` exclude cannot be
@@ -45,3 +46,6 @@ Thumbs.db
 # Chain-length check outputs (cluster)
 sim_sweep/chain_length/out/
 sim_sweep/chain_length/logs/
+
+
+download_*.log
