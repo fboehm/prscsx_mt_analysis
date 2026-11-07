@@ -21,8 +21,11 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 FIELDS = [
     'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
-    'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'time_s',
+    'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'corr_pred_tune',
+    'a', 'a_tuned', 'time_s',
 ]
+# `a` / `a_tuned` / `corr_pred_tune` are empty for result.csv files written
+# before the sparsity grid existed; DictWriter's restval fills them in.
 
 BASELINE = 'prscsx'          # what MT is compared against for the delta
 MT       = 'prscsx_mt'

@@ -75,6 +75,24 @@ _N_SMALL    = 5000
 _FIXED_PHI = 1e-2
 _PHI_MODES = (('auto', None), ('fixed', _FIXED_PHI))
 
+# `a` is the shape of the Gamma prior on the per-SNP variance psi_j (PRS-CS's
+# continuous shrinkage prior): small a puts prior mass near zero, i.e. a sparser
+# prior. Unlike phi there is no 'auto' path -- a is a FIXED hyperparameter -- so
+# honest numbers need it selected on held-out data. A single-value --a_grid
+# reproduces the untuned sweep exactly: no extra output level, no tune/val split,
+# scoring on the whole test cohort.
+_A_DEFAULT = 1.0
+# Which phi arms get the grid. 'auto' only: posterior-mean phi moves ~3 orders of
+# magnitude across the a grid (sparsity diagnostics, summary_followups.txt block
+# [3]), so a fixed-phi arm with varying a sits at an incoherent operating point --
+# and restricting it keeps the per-replicate cost at (G+1)/2 rather than G.
+_TUNE_PHI_MODES = ('auto',)
+
+
+def _a_tag(a):
+    """Filesystem-safe label for an `a` value: 0.25 -> 'a0p25'."""
+    return ('a%g' % a).replace('.', 'p').replace('-', 'm')
+
 # Long ("tidy") schema: one row per (pop, trait, method, phi_mode). This makes
 # the method set extensible (single-ancestry PRS-CS and MTAG->PRS-CSx slot in as
 # new `method` values) without changing the columns. Deltas (MT - baseline) are
@@ -82,13 +100,30 @@ _PHI_MODES = (('auto', None), ('fixed', _FIXED_PHI))
 _RESULT_FIELDS = [
     'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
-    'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'time_s',
+    'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'corr_pred_tune',
+    'a', 'a_tuned', 'time_s',
+]
+# One row per (pop, trait, method, phi_mode) holding the SELECTED `a`. When the
+# grid has several values the full grid also goes to a_grid.csv beside result.csv.
+_A_GRID_FIELDS = [
+    'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
+    'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
+    'method', 'phi_mode', 'phi', 'a', 'selected',
+    'corr', 'corr_pred', 'corr_pred_tune', 'time_s',
 ]
 # `corr`      : effect-recovery — corr(estimated posterior effects, true effects)
 #               (kept for continuity with the analytic sweep).
 # `corr_pred` : out-of-sample prediction — corr(PRS, phenotype) in a held-out
 #               target-ancestry test set. Only populated in sim_mode='realistic'
 #               (empty otherwise, since the analytic simulator has no test set).
+#               Scored on the whole cohort when untuned, on the validation half
+#               when `a` is tuned.
+# `corr_pred_tune` : the same quantity on the tuning half -- the statistic `a`
+#               was selected on. Empty when not tuning. Reported so the
+#               selection can be audited; never use it as a result.
+# `a`         : the shrinkage-prior shape actually used for this row.
+# `a_tuned`   : TRUE if `a` was selected on the tuning half for this (method,
+#               pop, trait), FALSE if it was fixed.
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -167,8 +202,11 @@ def _derive_seed(base, *key):
 
 # ── single-trait PRS-CSx ─────────────────────────────────────────────────────
 def _run_prscsx(ref_dir, bim_prefix, sst_files, n_gwas_per_pop,
-                pop_labels, out_dir, out_name, n_iter, n_burnin, seed, phi=None):
-    """Run original PRS-CSx for a single trait (phi=None => estimate it)."""
+                pop_labels, out_dir, out_name, n_iter, n_burnin, seed, phi=None,
+                a=_A_DEFAULT):
+    """Run original PRS-CSx for a single trait (phi=None => estimate it).
+
+    `a` is the shrinkage-prior shape; a=1 is the PRS-CSx default."""
     os.makedirs(out_dir, exist_ok=True)
     n_pop = len(pop_labels)
     chrom = 1
@@ -190,7 +228,7 @@ def _run_prscsx(ref_dir, bim_prefix, sst_files, n_gwas_per_pop,
         ref_dict, vld_dict, sst_dict, n_pop, chrom)
 
     _mcmc_orig.mcmc(
-        1, 0.5, phi, snp_dict, beta_dict, frq_dict, idx_dict,
+        a, 0.5, phi, snp_dict, beta_dict, frq_dict, idx_dict,
         n_gwas_per_pop, ld_blk, blk_size,
         n_iter, n_burnin, 5, pop_labels, chrom,
         out_dir, out_name, 'FALSE', 'FALSE', seed)
@@ -199,8 +237,10 @@ def _run_prscsx(ref_dir, bim_prefix, sst_files, n_gwas_per_pop,
 # ── multi-trait PRS-CSx-MT ────────────────────────────────────────────────────
 def _run_prscsx_mt(ref_dir, bim_prefix, sst_files_dict, n_gwas_dict,
                    pop_labels, out_dir, out_name, n_trait,
-                   rho_e, n_iter, n_burnin, seed, phi=None):
-    """Run PRS-CSx-MT for all traits jointly (phi=None => estimate it)."""
+                   rho_e, n_iter, n_burnin, seed, phi=None, a=_A_DEFAULT):
+    """Run PRS-CSx-MT for all traits jointly (phi=None => estimate it).
+
+    `a` is the shrinkage-prior shape; a=1 is the PRS-CSx default."""
     os.makedirs(out_dir, exist_ok=True)
     n_pop = len(pop_labels)
     chrom = 1
@@ -224,7 +264,7 @@ def _run_prscsx_mt(ref_dir, bim_prefix, sst_files_dict, n_gwas_dict,
         ref_dict, vld_dict, sst_dict, n_pop, n_trait, chrom)
 
     mcmc_gtb_mt.mcmc(
-        1, 0.5, phi, snp_dict, beta_dict, frq_dict, idx_dict,
+        a, 0.5, phi, snp_dict, beta_dict, frq_dict, idx_dict,
         n_gwas_dict, ld_blk, blk_size,
         n_iter, n_burnin, 5, pop_labels, chrom,
         out_dir, out_name, 'FALSE', 'FALSE', seed,
@@ -290,11 +330,15 @@ def _load_test_data(data_dir, pop_labels):
 
 
 def _evaluate_prediction(out_dir, out_name, pop_labels, n_trait, is_mt,
-                         test_data, single_trait_idx=None):
+                         test_data, single_trait_idx=None, idx=None):
     """Return {(pp, tt): corr(PRS, y)} on the held-out test set.
 
     PRS = X_test @ beta_est; scored against the test phenotype for the trait. The
-    real-world PRS accuracy, bounded by sqrt(h2) even for a perfect estimate."""
+    real-world PRS accuracy, bounded by sqrt(h2) even for a perfect estimate.
+
+    idx : {pop_label: row index array} restricting scoring to part of the test
+        cohort -- the tune/val split used when selecting `a`. None scores the
+        whole cohort, which is what the untuned sweep does."""
     results = {}
     if test_data is None:
         return results
@@ -305,6 +349,10 @@ def _evaluate_prediction(out_dir, out_name, pop_labels, n_trait, is_mt,
             continue
         X = test_data['geno'][pop]
         Y = test_data['pheno'][pop]
+        if idx is not None:
+            if pop not in idx:
+                continue
+            X, Y = X[idx[pop]], Y[idx[pop]]
         for tt in range(n_trait):
             path = _find_posterior(out_dir, out_name, pop, tt, is_mt)
             if path is None:
@@ -322,14 +370,28 @@ def _evaluate_prediction(out_dir, out_name, pop_labels, n_trait, is_mt,
 
 # ── main replicate runner ─────────────────────────────────────────────────────
 def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
-                  sim_mode='realistic', n_ref=500, n_test=5000, ld_hetero=0.15):
-    """Run a single (scenario, seed) pair and return a list of result rows.
+                  sim_mode='realistic', n_ref=500, n_test=5000, ld_hetero=0.15,
+                  a_grid=(_A_DEFAULT,), tune_frac=0.5):
+    """Run a single (scenario, seed) pair and return (result rows, grid rows).
 
     sim_mode : 'realistic' (population-specific LD, a finite/mismatched LD
         reference panel, individual-level OLS GWAS, and a held-out test set for
         out-of-sample prediction) or 'analytic' (the original simulate_mt path:
         one shared exact LD used both to generate data and as the reference, and
-        effect-recovery scoring only)."""
+        effect-recovery scoring only).
+
+    a_grid : shrinkage-prior shapes to try. A single value runs the whole
+        replicate at that `a` with no tune/val split -- (1.0,) reproduces the
+        untuned sweep byte for byte. Several values turn on validation tuning in
+        the phi arms named by _TUNE_PHI_MODES: every (method, pop, trait) picks
+        the `a` with the best tuning-half prediction, independently, and every
+        reported number in the replicate is then scored on the validation half
+        (including the arms that were not tuned, so one run is internally
+        consistent). Selection uses prediction because effect recovery needs the
+        true effects, which no analyst has.
+
+    tune_frac : share of the test cohort used to select `a`. Ignored unless
+        a_grid has more than one value."""
     name      = scenario['name']
     n_pop     = scenario['n_pop']
     n_trait   = scenario['n_trait']
@@ -385,46 +447,91 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
         (pp, tt): os.path.join(data_dir, 'sst_%s_trait%d.txt' % (pop_labels[pp], tt))
         for pp in range(n_pop) for tt in range(n_trait)}
 
-    rows = []
-    for phi_mode, phi in _PHI_MODES:
-        # ── baseline: PRS-CSx (cross-ancestry, single-trait), once per trait ──
+    # ── tune/val split of the held-out cohort, when selecting `a` ────────────
+    # One independent permutation per population, from its own derived seed, so
+    # the split does not depend on any other consumer of a shared stream.
+    tuning_any = (len(a_grid) > 1 and test_data is not None
+                  and bool(test_data.get('geno')))
+    tune_idx = val_idx = None
+    if tuning_any:
+        tune_idx, val_idx = {}, {}
+        for pp, pop in enumerate(pop_labels):
+            if pop not in test_data['geno']:
+                continue
+            n_ind = test_data['geno'][pop].shape[0]
+            perm  = np.random.RandomState(_derive_seed(seed, 4, pp)).permutation(n_ind)
+            k     = int(round(tune_frac * n_ind))
+            if k < 1 or k >= n_ind:
+                raise ValueError('tune_frac=%r leaves an empty half for %s (n=%d)'
+                                 % (tune_frac, pop, n_ind))
+            tune_idx[pop], val_idx[pop] = perm[:k], perm[k:]
+
+    def _fit_arm(phi, phi_mode, a, tuning):
+        """Fit both methods at one (phi, a).
+
+        Returns {method: (corr, pred_val, pred_tune, seconds)}. Output lands in
+        <rep>/<phi_mode>/[a<tag>/]<method>, the `a` level appearing only when the
+        arm is tuned so an untuned run keeps its original paths."""
+        arm_dir = os.path.join(rep_dir, phi_mode)
+        if tuning:
+            arm_dir = os.path.join(arm_dir, _a_tag(a))
+        out = {}
+
+        # baseline: PRS-CSx (cross-ancestry, single-trait), once per trait
         t0 = time.time()
-        prscsx_corr = {}
-        prscsx_pred = {}
+        c_st, v_st, t_st = {}, {}, {}
         for tt in range(n_trait):
             sst_files_t = [
                 os.path.join(data_dir, 'sst_%s_trait%d.txt' % (pop_labels[pp], tt))
                 for pp in range(n_pop)]
             n_gwas_t = [n_gwas_list[pp][tt] for pp in range(n_pop)]
-            out_st   = os.path.join(rep_dir, phi_mode, 'prscsx_t%d' % tt)
+            out_st   = os.path.join(arm_dir, 'prscsx_t%d' % tt)
+            nm       = 'prs_t%d' % tt
+            # Same sampler seed at every `a`: common random numbers across the
+            # grid, so selection sees the `a` effect and not fresh MCMC noise.
             _run_prscsx(data_dir, bim, sst_files_t, n_gwas_t, pop_labels,
-                        out_st, 'prs_t%d' % tt, n_iter, n_burnin,
-                        _derive_seed(seed, 1, tt), phi=phi)
-            res = _evaluate(out_st, 'prs_t%d' % tt, data_dir, pop_labels,
-                            n_trait=1, is_mt=False, single_trait_idx=tt)
-            for (pp, _), corr in res.items():
-                prscsx_corr[(pp, tt)] = corr
-            pred = _evaluate_prediction(out_st, 'prs_t%d' % tt, pop_labels,
+                        out_st, nm, n_iter, n_burnin,
+                        _derive_seed(seed, 1, tt), phi=phi, a=a)
+            for (pp, _), c in _evaluate(out_st, nm, data_dir, pop_labels,
                                         n_trait=1, is_mt=False,
-                                        test_data=test_data, single_trait_idx=tt)
-            for (pp, _), c in pred.items():
-                prscsx_pred[(pp, tt)] = c
-        time_st = time.time() - t0
+                                        single_trait_idx=tt).items():
+                c_st[(pp, tt)] = c
+            for (pp, _), c in _evaluate_prediction(
+                    out_st, nm, pop_labels, 1, False, test_data,
+                    single_trait_idx=tt, idx=val_idx).items():
+                v_st[(pp, tt)] = c
+            if tune_idx is not None:
+                for (pp, _), c in _evaluate_prediction(
+                        out_st, nm, pop_labels, 1, False, test_data,
+                        single_trait_idx=tt, idx=tune_idx).items():
+                    t_st[(pp, tt)] = c
+        out['prscsx'] = (c_st, v_st, t_st, time.time() - t0)
 
-        # ── PRS-CSx-MT (cross-trait + cross-ancestry, jointly) ────────────────
+        # PRS-CSx-MT (cross-trait + cross-ancestry, jointly)
         t0 = time.time()
-        out_mt = os.path.join(rep_dir, phi_mode, 'prscsx_mt')
+        out_mt = os.path.join(arm_dir, 'prscsx_mt')
         _run_prscsx_mt(data_dir, bim, sst_files_mt, n_gwas_dict, pop_labels,
                        out_mt, 'prs_mt', n_trait, rho_e, n_iter, n_burnin,
-                       _derive_seed(seed, 2), phi=phi)
-        mt_corr = _evaluate(out_mt, 'prs_mt', data_dir, pop_labels,
-                            n_trait=n_trait, is_mt=True)
-        mt_pred = _evaluate_prediction(out_mt, 'prs_mt', pop_labels,
-                                       n_trait=n_trait, is_mt=True,
-                                       test_data=test_data)
-        time_mt = time.time() - t0
+                       _derive_seed(seed, 2), phi=phi, a=a)
+        out['prscsx_mt'] = (
+            _evaluate(out_mt, 'prs_mt', data_dir, pop_labels,
+                      n_trait=n_trait, is_mt=True),
+            _evaluate_prediction(out_mt, 'prs_mt', pop_labels, n_trait, True,
+                                 test_data, idx=val_idx),
+            (_evaluate_prediction(out_mt, 'prs_mt', pop_labels, n_trait, True,
+                                  test_data, idx=tune_idx)
+             if tune_idx is not None else {}),
+            time.time() - t0)
+        return out
 
-        # ── emit one tidy row per (pop, trait, method) for this phi arm ───────
+    rows, grid_rows = [], []
+    for phi_mode, phi in _PHI_MODES:
+        tuning = tuning_any and phi_mode in _TUNE_PHI_MODES
+        # Arms that are not tuned run at the first grid value, so `--a_grid 0.05`
+        # sweeps everything at a=0.05 without turning tuning on.
+        a_vals = tuple(a_grid) if tuning else (a_grid[0],)
+        arms   = {a: _fit_arm(phi, phi_mode, a, tuning) for a in a_vals}
+
         for pp in range(n_pop):
             for tt in range(n_trait):
                 base = {
@@ -437,15 +544,36 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
                     'phi_mode': phi_mode,
                     'phi': ('auto' if phi is None else phi),
                 }
-                rows.append(dict(base, method='prscsx',
-                                 corr=prscsx_corr.get((pp, tt), float('nan')),
-                                 corr_pred=prscsx_pred.get((pp, tt), ''),
-                                 time_s=round(time_st, 1)))
-                rows.append(dict(base, method='prscsx_mt',
-                                 corr=mt_corr.get((pp, tt), float('nan')),
-                                 corr_pred=mt_pred.get((pp, tt), ''),
-                                 time_s=round(time_mt, 1)))
-    return rows
+                for method in ('prscsx', 'prscsx_mt'):
+                    a_sel = a_vals[0]
+                    if tuning:
+                        scored = [(a, arms[a][method][2].get((pp, tt)))
+                                  for a in a_vals]
+                        scored = [(a, v) for a, v in scored
+                                  if isinstance(v, float) and v == v]
+                        if scored:
+                            # ties -> the largest `a`, i.e. the least sparse
+                            # (and so least selection-hungry) explanation
+                            a_sel = max(scored, key=lambda kv: (kv[1], kv[0]))[0]
+                    c_m, v_m, t_m, secs = arms[a_sel][method]
+                    rows.append(dict(
+                        base, method=method, a=a_sel,
+                        a_tuned=('TRUE' if tuning else 'FALSE'),
+                        corr=c_m.get((pp, tt), float('nan')),
+                        corr_pred=v_m.get((pp, tt), ''),
+                        corr_pred_tune=t_m.get((pp, tt), ''),
+                        time_s=round(secs, 1)))
+                    if tuning:
+                        for a in a_vals:
+                            c_a, v_a, t_a, s_a = arms[a][method]
+                            grid_rows.append(dict(
+                                base, method=method, a=a,
+                                selected=('TRUE' if a == a_sel else 'FALSE'),
+                                corr=c_a.get((pp, tt), float('nan')),
+                                corr_pred=v_a.get((pp, tt), ''),
+                                corr_pred_tune=t_a.get((pp, tt), ''),
+                                time_s=round(s_a, 1)))
+    return rows, grid_rows
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -469,7 +597,35 @@ def _parse_args():
                    help='Held-out test individuals per population (realistic).')
     p.add_argument('--ld_hetero',      type=float, default=0.15,
                    help='Per-population LD divergence strength (realistic; 0=shared).')
+    p.add_argument('--a_grid',         default='1',
+                   help='Comma-separated values for the shrinkage-prior shape `a`. '
+                        'One value (default 1, the PRS-CSx default) runs the whole '
+                        'replicate at that `a` and reproduces the untuned sweep. '
+                        'Several values turn on validation tuning: each (method, '
+                        'pop, trait) picks the `a` with the best tuning-half '
+                        'prediction and every reported number is scored on the '
+                        'other half. The full grid also goes to a_grid.csv.')
+    p.add_argument('--tune_frac',      type=float, default=0.5,
+                   help='Share of the held-out cohort used to select `a`; the rest '
+                        'scores the result. Ignored with a single-value --a_grid.')
     return p.parse_args()
+
+
+def _parse_a_grid(text):
+    """'1,0.25,0.05' -> (1.0, 0.25, 0.05), de-duplicated, order preserved."""
+    vals = []
+    for tok in str(text).split(','):
+        tok = tok.strip()
+        if not tok:
+            continue
+        v = float(tok)
+        if v <= 0:
+            raise ValueError('--a_grid values must be > 0, got %r' % tok)
+        if v not in vals:
+            vals.append(v)
+    if not vals:
+        raise ValueError('--a_grid is empty')
+    return tuple(vals)
 
 
 def main():
@@ -484,11 +640,17 @@ def main():
               % (args.scenario_name, args.scenarios_file))
         sys.exit(1)
 
-    rows = run_replicate(
+    a_grid = _parse_a_grid(args.a_grid)
+    if len(a_grid) > 1 and args.sim_mode != 'realistic':
+        print('ERROR: tuning `a` needs --sim_mode realistic (the analytic '
+              'simulator writes no held-out cohort to tune on).')
+        sys.exit(1)
+
+    rows, grid_rows = run_replicate(
         scenario_map[args.scenario_name],
         args.seed, args.n_snp, args.n_iter, args.n_burnin, args.out_dir,
         sim_mode=args.sim_mode, n_ref=args.n_ref, n_test=args.n_test,
-        ld_hetero=args.ld_hetero)
+        ld_hetero=args.ld_hetero, a_grid=a_grid, tune_frac=args.tune_frac)
 
     rep_dir  = os.path.join(args.out_dir, args.scenario_name, 'seed_%d' % args.seed)
     csv_path = os.path.join(rep_dir, 'result.csv')
@@ -496,8 +658,15 @@ def main():
         writer = csv.DictWriter(fh, fieldnames=_RESULT_FIELDS)
         writer.writeheader()
         writer.writerows(rows)
-
     print('Saved %d rows -> %s' % (len(rows), csv_path))
+
+    if grid_rows:
+        grid_path = os.path.join(rep_dir, 'a_grid.csv')
+        with open(grid_path, 'w', newline='') as fh:
+            writer = csv.DictWriter(fh, fieldnames=_A_GRID_FIELDS)
+            writer.writeheader()
+            writer.writerows(grid_rows)
+        print('Saved %d grid rows -> %s' % (len(grid_rows), grid_path))
 
 
 if __name__ == '__main__':

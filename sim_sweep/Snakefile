@@ -172,11 +172,33 @@ def _units(scenario):
     s = SCENARIO_META[scenario]
     return max(1, int(s.get("n_trait", 2))) * max(1, int(s.get("n_pop", 2)))
 
+def _a_grid_size():
+    """Number of distinct values in the configured sparsity grid."""
+    toks = [t.strip() for t in str(config.get("a_grid", "1")).split(",") if t.strip()]
+    # de-duplicate by value, matching run_one_replicate._parse_a_grid, so "1,1.0"
+    # is one grid point here too.
+    vals = set()
+    for t in toks:
+        try:
+            vals.add(float(t))
+        except ValueError:
+            vals.add(t)
+    return len(vals) or 1
+
+def _a_cost_factor():
+    """MCMC-cost multiplier from the sparsity grid.
+
+    With G > 1 values, run_one_replicate tunes only the auto-phi arm (see
+    _TUNE_PHI_MODES), so a replicate does G fits there and 1 in the fixed arm:
+    (G + 1) / 2 times the work of an untuned replicate. G = 1 changes nothing."""
+    g = _a_grid_size()
+    return (g + 1) / 2.0 if g > 1 else 1.0
+
 def replicate_runtime(wildcards, attempt):        # minutes
     units = _units(wildcards.scenario)
     base  = int(config.get("runtime_base_min", 30))
     per   = int(config.get("runtime_per_unit_min", 15))
-    return (base + per * units) * attempt
+    return int(round((base + per * units) * _a_cost_factor())) * attempt
 
 def replicate_mem(wildcards, attempt):            # MB
     units = _units(wildcards.scenario)
@@ -238,6 +260,8 @@ rule run_replicate:
         n_ref          = config.get("n_ref", 500),
         n_test         = config.get("n_test", 5000),
         ld_hetero      = config.get("ld_hetero", 0.15),
+        a_grid         = config.get("a_grid", "1"),
+        tune_frac      = config.get("tune_frac", 0.5),
         keep_data      = config.get("keep_data", False),
     threads: 1
     resources:
@@ -260,6 +284,8 @@ rule run_replicate:
             --n_ref          {params.n_ref} \
             --n_test         {params.n_test} \
             --ld_hetero      {params.ld_hetero} \
+            --a_grid         "{params.a_grid}" \
+            --tune_frac      {params.tune_frac} \
             > "{log}" 2>&1
 
         # Snakemake runs this under bash strict mode, so we only reach here if the

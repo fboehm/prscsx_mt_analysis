@@ -31,6 +31,32 @@ n_ref:     500          # LD reference-panel individuals per population
 n_test:    5000         # held-out test individuals per population
 ld_hetero: 0.15         # per-population LD divergence (0 => identical LD across pops)
 
+# ── sparsity prior `a` ────────────────────────────────────────────────────────
+# `a` is the shape of the Gamma prior on the per-SNP variance psi_j; small `a`
+# puts prior mass near zero, i.e. a sparser prior. It is a FIXED hyperparameter
+# (no 'auto' path, unlike phi), and the simulation is 10% causal, so a=1 -- the
+# PRS-CSx default -- is a mis-specified prior for BOTH methods. The 2026-11-06
+# sparsity grids showed tuning it is worth ~2x more to PRS-CSx than to MT, so a=1
+# flatters MT: see "The `a`=1 caveat" in PROJECT_NOTES.
+#
+#   "1"                 one value => no tuning, no tune/val split, scoring on the
+#                       whole n_test cohort. Reproduces the untuned sweep exactly.
+#   "1,0.25,0.05,0.01"  turns on validation tuning. Each (method, pop, trait)
+#                       picks its own `a` on a tune_frac slice of the held-out
+#                       cohort and every reported number is scored on the rest.
+#                       Only the auto-phi arm is tuned (phi moves ~3 orders of
+#                       magnitude across the grid), so the cost is (G+1)/2 = 2.5x,
+#                       i.e. ~810 core-h for the 1470-replicate sweep.
+# Do NOT extend below 0.01 without running the boundary check first (next-step 3,
+# design point 4): the slope has collapsed by then and extra grid points only buy
+# selection noise.
+a_grid:    "1"
+tune_frac: 0.5          # share of n_test used to select `a` (the rest scores it)
+#
+# NOTE when turning tuning on: the split halves the scoring cohort (5000 -> 2500),
+# inflating every se by ~sqrt(2). Raise n_test to 10000 to hold precision; the
+# genotypes are cheap next to the MCMC and data/ is deleted after each replicate.
+
 # ── interpreter ──────────────────────────────────────────────────────────────
 # Must have numpy + scipy + h5py. Locally that is /usr/bin/python3.12 (the
 # default conda python3 lacks scipy). On the cluster, set this to the interpreter
