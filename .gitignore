@@ -16,7 +16,7 @@ sim_sweep/job_list*.txt
 sim_sweep/all_results.csv
 sim_sweep/deltas.csv
 # PRSxtra per-replicate tree (commit sim_sweep/all_results_prsxtra.csv + analysis_prsxtra/ instead)
-sim_sweep/results_prsxtra/
+sim_sweep/results_prsxtra*/
 sim_sweep/results_v2/
 # Alternative sweep trees (results_v2/ etc.): ignore the per-replicate tree, but
 # keep the collected CSVs trackable -- the Snakefile writes them inside the

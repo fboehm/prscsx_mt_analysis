@@ -144,10 +144,21 @@ PRSXTRA_CSVS = expand(
     seed=SEEDS,
     phi=PRSXTRA_PHIS,
 )
-# Small, committable outputs live in sim_sweep/ beside all_results.csv; the
-# large per-replicate tree (PRSXTRA_DIR) stays out of git.
-PRSXTRA_ALL      = str(SWEEP_DIR / "all_results_prsxtra.csv")
-PRSXTRA_ANALYSIS = str(SWEEP_DIR / "analysis_prsxtra")
+# The collected PRSxtra outputs are small and committable, so they keep living
+# beside the Snakefile rather than inside the per-replicate tree -- unlike the
+# main sweep's all_results.csv, which is big and is collected into its
+# results_dir. To stop a rerun overwriting the committed October files, their
+# names carry the results dir's suffix: the default results_prsxtra/ still gives
+# all_results_prsxtra.csv + analysis_prsxtra/, while results_prsxtra_v2/ gives
+# all_results_prsxtra_v2.csv + analysis_prsxtra_v2/. Override either with
+# --config all_results_prsxtra=<path> / analysis_prsxtra_dir=<path>.
+_px_base = Path(PRSXTRA_DIR).name
+_px_sfx  = (_px_base[len("results_prsxtra"):] if _px_base.startswith("results_prsxtra")
+            else "_" + _px_base)
+PRSXTRA_ALL      = _anchor(config.get("all_results_prsxtra"),
+                           "all_results_prsxtra%s.csv" % _px_sfx)
+PRSXTRA_ANALYSIS = _anchor(config.get("analysis_prsxtra_dir"),
+                           "analysis_prsxtra%s" % _px_sfx)
 PRSXTRA_REPORT   = PRSXTRA_ANALYSIS + "/report.md"
 
 # ---------------------------------------------------------------------------
