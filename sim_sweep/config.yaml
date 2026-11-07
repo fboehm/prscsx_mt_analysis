@@ -28,7 +28,17 @@ n_burnin: 2000          # was 500
 #               generate data and as the reference; effect-recovery scoring only).
 sim_mode:  realistic
 n_ref:     500          # LD reference-panel individuals per population
-n_test:    5000         # held-out test individuals per population
+n_test:    10000        # held-out test individuals per population.
+                        # Was 5000 through the v2 sweep (commit d792e19) and the
+                        # v2 PRSxtra run (f5bea5d). Raised 2026-11-07 together
+                        # with a_grid: tuning splits this cohort in half, so 5000
+                        # would leave 2500 to score on and inflate every se by
+                        # ~sqrt(2) -- enough to make Finding 2's +0.0007 +/- 0.0004
+                        # unresolvable. At 10000 the validation half is 5000, i.e.
+                        # the same precision as the untuned sweep. Measured cost:
+                        # +0.4% wall time, +1.5 MB peak RSS, data/ 88 -> 168 MB per
+                        # replicate (~34 GB concurrent at 200 jobs, transient --
+                        # data/ is deleted when a replicate succeeds).
 ld_hetero: 0.15         # per-population LD divergence (0 => identical LD across pops)
 
 # ── sparsity prior `a` ────────────────────────────────────────────────────────
@@ -50,12 +60,10 @@ ld_hetero: 0.15         # per-population LD divergence (0 => identical LD across
 # Do NOT extend below 0.01 without running the boundary check first (next-step 3,
 # design point 4): the slope has collapsed by then and extra grid points only buy
 # selection noise.
-a_grid:    "1"
+# Tuning ON as of 2026-11-07. Set a_grid back to "1" to reproduce the untuned v2
+# sweep -- and put n_test back to 5000 with it, or the two runs are not comparable.
+a_grid:    "1,0.25,0.05,0.01"
 tune_frac: 0.5          # share of n_test used to select `a` (the rest scores it)
-#
-# NOTE when turning tuning on: the split halves the scoring cohort (5000 -> 2500),
-# inflating every se by ~sqrt(2). Raise n_test to 10000 to hold precision; the
-# genotypes are cheap next to the MCMC and data/ is deleted after each replicate.
 
 # ── interpreter ──────────────────────────────────────────────────────────────
 # Must have numpy + scipy + h5py. Locally that is /usr/bin/python3.12 (the
@@ -96,7 +104,12 @@ mem_per_unit_mb:      250           # was 1000
 # ── PRS-CSx-MT vs PRSxtra (target: snakemake ... prsxtra) ─────────────────────
 prsxtra_groups:    [rg_frac_grid]   # scenario groups to run the comparison on
 prsxtra_phi:       [auto]           # add 1e-2 for the fixed-phi arm
-prsxtra_tune_frac: 0.5              # share of the n_test target people used to fit ridge weights
+prsxtra_n_test:    5000             # held-out people per population for the PRSxtra track.
+                                    # Pinned apart from the sweep's n_test (10000 since
+                                    # 2026-11-07): PRSxtra is finished at 5000 and does not
+                                    # tune `a`, so it needs no split and must stay put to
+                                    # stay comparable with October and the v2 rerun.
+prsxtra_tune_frac: 0.5              # share of prsxtra_n_test used to fit ridge weights
 
 # ── optional path overrides (else derived from the Snakefile location) ───────
 # scenarios_file: "scenarios.json"

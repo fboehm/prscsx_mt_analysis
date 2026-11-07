@@ -17,7 +17,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 #SBATCH --job-name=prscsx_mt_sweep
-#SBATCH --time=02:00:00
+#SBATCH --time=03:00:00   # 2.5x the untuned cost: a 4-value a_grid runs 4 MCMC
+                          # fits in the auto-phi arm and 1 in the fixed arm. The
+                          # Snakemake path asks 138 min for the same work.
 #SBATCH --mem=5G
 #SBATCH --cpus-per-task=1
 # Each task runs 2 phi arms x (per-trait PRS-CSx + PRS-CSx-MT). The two requests
@@ -53,11 +55,33 @@ SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # the 2026-11-06 chain-length check moved the sweep to 5000/2000). The literals
 # are only a fallback for an unreadable or reformatted config. Override either
 # per submission:  N_ITER=1000 N_BURNIN=500 sbatch --array=... submit_jobs.sh
-_cfg() { sed -n "s/^$1:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "${SCRIPT_DIR}/config.yaml" | head -1; }
+# Reads scalars of any type: strips a trailing comment and surrounding quotes,
+# so a_grid: "1,0.25,0.05,0.01" comes back as 1,0.25,0.05,0.01.
+_cfg() {
+    sed -n "s/^$1:[[:space:]]*\(.*\)/\1/p" "${SCRIPT_DIR}/config.yaml" | head -1 \
+      | sed -e 's/[[:space:]]*#.*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/" \
+            -e 's/[[:space:]]*$//'
+}
 N_SNP="${N_SNP:-$(_cfg n_snp)}";          N_SNP="${N_SNP:-2000}"
 N_ITER="${N_ITER:-$(_cfg n_iter)}";       N_ITER="${N_ITER:-5000}"
 N_BURNIN="${N_BURNIN:-$(_cfg n_burnin)}"; N_BURNIN="${N_BURNIN:-2000}"
+# These four were never passed at all -- the script relied on run_one_replicate's
+# own defaults happening to equal the config. That held until n_test moved to
+# 10000 on 2026-11-07, so read them explicitly now.
+SIM_MODE="${SIM_MODE:-$(_cfg sim_mode)}";   SIM_MODE="${SIM_MODE:-realistic}"
+N_REF="${N_REF:-$(_cfg n_ref)}";            N_REF="${N_REF:-500}"
+N_TEST="${N_TEST:-$(_cfg n_test)}";         N_TEST="${N_TEST:-10000}"
+LD_HETERO="${LD_HETERO:-$(_cfg ld_hetero)}"; LD_HETERO="${LD_HETERO:-0.15}"
+A_GRID="${A_GRID:-$(_cfg a_grid)}";         A_GRID="${A_GRID:-1}"
+TUNE_FRAC="${TUNE_FRAC:-$(_cfg tune_frac)}"; TUNE_FRAC="${TUNE_FRAC:-0.5}"
+# The PRSxtra track keeps its own cohort size, pinned at what it already ran at.
+PRSXTRA_N_TEST="${PRSXTRA_N_TEST:-$(_cfg prsxtra_n_test)}"
+PRSXTRA_N_TEST="${PRSXTRA_N_TEST:-5000}"
+PRSXTRA_TUNE_FRAC="${PRSXTRA_TUNE_FRAC:-$(_cfg prsxtra_tune_frac)}"
+PRSXTRA_TUNE_FRAC="${PRSXTRA_TUNE_FRAC:-0.5}"
 echo "Grid: n_snp=${N_SNP} n_iter=${N_ITER} n_burnin=${N_BURNIN}"
+echo "Sim:  sim_mode=${SIM_MODE} n_ref=${N_REF} n_test=${N_TEST} ld_hetero=${LD_HETERO}"
+echo "a:    a_grid=${A_GRID} tune_frac=${TUNE_FRAC}"
 
 # MODE selects the runner: 'sweep' (run_one_replicate.py, default) or
 # 'prsxtra' (compare_prsxtra.py). Each mode has its own job list and results dir.
@@ -95,7 +119,11 @@ if [ "${MODE}" = "prsxtra" ]; then
         --phi            "${PHI:-auto}"                    \
         --n_snp          "${N_SNP}"                        \
         --n_iter         "${N_ITER}"                       \
-        --n_burnin       "${N_BURNIN}"
+        --n_burnin       "${N_BURNIN}"                     \
+        --n_ref          "${N_REF}"                        \
+        --n_test         "${PRSXTRA_N_TEST}"               \
+        --ld_hetero      "${LD_HETERO}"                    \
+        --tune_frac      "${PRSXTRA_TUNE_FRAC}"
 else
     "${PYTHON}" "${SCRIPT_DIR}/run_one_replicate.py" \
         --scenario_name  "${SCENARIO_NAME}"               \
@@ -104,7 +132,13 @@ else
         --out_dir        "${RESULTS_DIR}"                  \
         --n_snp          "${N_SNP}"                        \
         --n_iter         "${N_ITER}"                       \
-        --n_burnin       "${N_BURNIN}"
+        --n_burnin       "${N_BURNIN}"                     \
+        --sim_mode       "${SIM_MODE}"                     \
+        --n_ref          "${N_REF}"                        \
+        --n_test         "${N_TEST}"                       \
+        --ld_hetero      "${LD_HETERO}"                    \
+        --a_grid         "${A_GRID}"                       \
+        --tune_frac      "${TUNE_FRAC}"
 fi
 
 EXIT_CODE=$?

@@ -348,7 +348,13 @@ rule run_prsxtra:
         n_iter         = config.get("n_iter", 1000),
         n_burnin       = config.get("n_burnin", 500),
         n_ref          = config.get("n_ref", 500),
-        n_test         = config.get("n_test", 5000),
+        # Pinned separately from the main sweep's n_test: the PRSxtra comparison
+        # is finished at 5000 (October's all_results_prsxtra.csv and the v2 rerun,
+        # commit f5bea5d), and the main sweep moved to 10000 on 2026-11-07 only so
+        # the tuning split would not cost precision. PRSxtra does not tune `a`
+        # (a=1 is faithful there -- He et al. used PRS-CSx defaults), so it needs
+        # no split and must stay at 5000 to remain comparable.
+        n_test         = config.get("prsxtra_n_test", 5000),
         ld_hetero      = config.get("ld_hetero", 0.15),
         tune_frac      = config.get("prsxtra_tune_frac", 0.5),
     threads: 1
