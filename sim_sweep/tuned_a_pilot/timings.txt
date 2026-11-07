@@ -1,0 +1,6 @@
+rgfrac_rg0.0_f0.00 	Elapsed (wall clock) time (h:mm:ss or m:ss): 38:30.45
+rgfrac_rg0.0_f0.00 	Maximum resident set size (kbytes): 818500
+rgfrac_rg0.4_f0.50 	Elapsed (wall clock) time (h:mm:ss or m:ss): 38:24.30
+rgfrac_rg0.4_f0.50 	Maximum resident set size (kbytes): 817084
+h2_0.1 	Elapsed (wall clock) time (h:mm:ss or m:ss): 39:58.40
+h2_0.1 	Maximum resident set size (kbytes): 910888
