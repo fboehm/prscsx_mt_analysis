@@ -17,6 +17,8 @@ sim_sweep/all_results.csv
 sim_sweep/deltas.csv
 # PRSxtra per-replicate tree (commit sim_sweep/all_results_prsxtra.csv + analysis_prsxtra/ instead)
 sim_sweep/results_prsxtra/
+# Alternative sweep trees (results_v2/ etc.) — same deal
+sim_sweep/results_v*/
 
 # Real-data inputs / tools / outputs (large, regenerable)
 data/

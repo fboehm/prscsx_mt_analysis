@@ -65,6 +65,12 @@ Notes
 * Per-replicate runtime and memory scale with the scenario's n_trait × n_pop and
   with the retry attempt (a job that times out is retried with more time/RAM).
 * `collect` and `all` are local rules — they run on the submit node, not Slurm.
+* A run with its own `results_dir` collects into that tree
+  (`<results_dir>/all_results.csv` + `deltas.csv`), so runs with different settings
+  do not overwrite each other; the default `results/` tree still collects to
+  `sim_sweep/all_results.csv`. Override with `--config all_results=<path>`.
+* Each replicate's `data/` is deleted once `result.csv` is written. Keep it with
+  `--config keep_data=True` (expect ~160 MB per replicate).
 """
 
 import json
@@ -79,16 +85,31 @@ SWEEP_DIR = Path(workflow.basedir)
 configfile: str(SWEEP_DIR / "config.yaml")
 
 SCENARIOS_FILE = config.get("scenarios_file") or str(SWEEP_DIR / "scenarios.json")
-RESULTS_DIR    = config.get("results_dir")    or str(SWEEP_DIR / "results")
+def _anchor(p, default):
+    """Resolve a config path against sim_sweep/, so a relative results_dir lands
+    here regardless of where snakemake was invoked from."""
+    if not p:
+        return str(SWEEP_DIR / default)
+    return p if Path(p).is_absolute() else str(SWEEP_DIR / p)
+
+RESULTS_DIR    = _anchor(config.get("results_dir"), "results")
 RUNNER         = str(SWEEP_DIR / "run_one_replicate.py")
 COLLECTOR      = str(SWEEP_DIR / "collect_results.py")
 PRSXTRA_RUNNER = str(SWEEP_DIR / "compare_prsxtra.py")
 PRSXTRA_ANALYZER = str(SWEEP_DIR / "analyze_prsxtra.py")
-PRSXTRA_DIR    = config.get("prsxtra_results_dir") or str(SWEEP_DIR / "results_prsxtra")
+PRSXTRA_DIR    = _anchor(config.get("prsxtra_results_dir"), "results_prsxtra")
 
-ALL_RESULTS = str(SWEEP_DIR / "all_results.csv")
-DELTAS      = str(SWEEP_DIR / "deltas.csv")     # collect_results.py writes this
-                                                # next to all_results.csv
+# collect_results.py always writes deltas.csv (and deltas_pred.csv in realistic
+# sim_mode) next to the all_results file, so only this one path is chosen here.
+# The default results/ tree collects beside the Snakefile, where the existing
+# files live; a run with its own results_dir collects inside that tree, so two
+# runs with different settings cannot overwrite each other's all_results.csv.
+_collect_dir = SWEEP_DIR if RESULTS_DIR == str(SWEEP_DIR / "results") else Path(RESULTS_DIR)
+_all_results = config.get("all_results")
+ALL_RESULTS = (_all_results if _all_results and Path(_all_results).is_absolute()
+               else str(SWEEP_DIR / _all_results) if _all_results
+               else str(_collect_dir / "all_results.csv"))
+DELTAS      = str(Path(ALL_RESULTS).parent / "deltas.csv")
 
 # ---------------------------------------------------------------------------
 # Sweep grid: scenarios × seeds
@@ -206,6 +227,7 @@ rule run_replicate:
         n_ref          = config.get("n_ref", 500),
         n_test         = config.get("n_test", 5000),
         ld_hetero      = config.get("ld_hetero", 0.15),
+        keep_data      = config.get("keep_data", False),
     threads: 1
     resources:
         runtime       = replicate_runtime,   # minutes
@@ -228,6 +250,15 @@ rule run_replicate:
             --n_test         {params.n_test} \
             --ld_hetero      {params.ld_hetero} \
             > "{log}" 2>&1
+
+        # Snakemake runs this under bash strict mode, so we only reach here if the
+        # runner succeeded -- a failed replicate keeps its data/ for debugging.
+        # data/ is ~160 MB of simulated genotypes (n_ref + n_test individuals) and
+        # is regenerable from the seed; at 30 seeds it would otherwise be ~250 GB.
+        case "{params.keep_data}" in
+            [Tt]rue|1|[Yy]es) ;;
+            *) rm -rf "{params.results_dir}/{wildcards.scenario}/seed_{wildcards.seed}/data" ;;
+        esac
         """
 
 
