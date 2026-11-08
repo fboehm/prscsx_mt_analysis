@@ -1,0 +1,158 @@
+######## analyze.py ########
+rows read: 960
+cells: 120  (expect 3 scen x 10 seeds x 2 pop x 2 trait = 120)
+incomplete cells: 0
+
+=== paired step deltas in corr_pred_tune ===
+method     step              mean d        sd 95% CI (cluster boot)  frac>0
+prscsx     0.05->0.01       +0.0033    0.0035   [+0.0030, +0.0036]    0.83
+prscsx     0.01->0.005      +0.0003    0.0032   [-0.0001, +0.0007]    0.47
+prscsx     0.005->0.002     +0.0001    0.0033   [-0.0002, +0.0003]    0.57
+prscsx_mt  0.05->0.01       +0.0014    0.0019   [+0.0010, +0.0017]    0.76
+prscsx_mt  0.01->0.005      +0.0000    0.0019   [-0.0001, +0.0002]    0.50
+prscsx_mt  0.005->0.002     +0.0000    0.0023   [-0.0002, +0.0003]    0.49
+
+=== paired step deltas in corr_pred ===
+method     step              mean d        sd 95% CI (cluster boot)  frac>0
+prscsx     0.05->0.01       +0.0036    0.0033   [+0.0033, +0.0038]    0.88
+prscsx     0.01->0.005      +0.0005    0.0032   [+0.0000, +0.0009]    0.60
+prscsx     0.005->0.002     +0.0000    0.0032   [-0.0003, +0.0003]    0.53
+prscsx_mt  0.05->0.01       +0.0016    0.0021   [+0.0012, +0.0019]    0.86
+prscsx_mt  0.01->0.005      +0.0000    0.0018   [-0.0002, +0.0002]    0.54
+prscsx_mt  0.005->0.002     -0.0000    0.0020   [-0.0003, +0.0002]    0.52
+
+=== tuning-half argmax distribution (what the selector would pick) ===
+method         0.05      0.01     0.005     0.002
+prscsx            5        32        32        51   (n=120)
+prscsx_mt         5        40        38        37   (n=120)
+
+=== per-scenario, per-method mean validation corr_pred by a ===
+scenario               method          0.05       0.01      0.005      0.002
+rgfrac_rg0.0_f0.00     prscsx        0.6226     0.6264     0.6263     0.6265
+rgfrac_rg0.0_f0.00     prscsx_mt     0.6215     0.6222     0.6226     0.6223
+rgfrac_rg0.4_f0.50     prscsx        0.6243     0.6276     0.6283     0.6282
+rgfrac_rg0.4_f0.50     prscsx_mt     0.6274     0.6292     0.6292     0.6292
+rgfrac_rg0.8_f1.00     prscsx        0.6191     0.6228     0.6235     0.6235
+rgfrac_rg0.8_f1.00     prscsx_mt     0.6266     0.6288     0.6285     0.6288
+
+=== pooled mean by a (both metrics) ===
+method     metric                0.05       0.01      0.005      0.002
+prscsx     corr_pred_tune      0.6225     0.6258     0.6261     0.6262
+prscsx     corr_pred           0.6220     0.6256     0.6260     0.6260
+prscsx     corr                0.8327     0.8383     0.8388     0.8387
+prscsx_mt  corr_pred_tune      0.6255     0.6269     0.6269     0.6270
+prscsx_mt  corr_pred           0.6252     0.6268     0.6268     0.6268
+prscsx_mt  corr                0.8450     0.8470     0.8468     0.8468
+
+######## analyze2.py ########
+=== selection-noise cost: does ADDING plateau points below 0.01 help? ===
+validation corr_pred, paired, 120 cells; positive = extending the grid helps
+
+method     contrast                                    mean d                95% CI  frac>0
+prscsx     select{0.01,0.005} - fix 0.01              +0.0010   [+0.0008, +0.0013]    0.38
+prscsx     select{0.01,0.005,0.002} - fix 0.01        +0.0014   [+0.0011, +0.0017]    0.55
+prscsx_mt  select{0.01,0.005} - fix 0.01              +0.0004   [+0.0002, +0.0005]    0.36
+prscsx_mt  select{0.01,0.005,0.002} - fix 0.01        +0.0007   [+0.0005, +0.0008]    0.47
+
+=== oracle headroom left below 0.01 (upper bound on any gain) ===
+validation-half max over {0.005,0.002} minus value at 0.01
+
+prscsx     oracle-below-0.01    +0.0016   [+0.0012, +0.0021]
+prscsx_mt  oracle-below-0.01    +0.0008   [+0.0006, +0.0009]
+
+=== per-population step deltas in validation corr_pred ===
+pop   method     step              mean d                95% CI  frac>0
+EUR   prscsx     0.05->0.01       +0.0017   [+0.0014, +0.0020]    0.78
+EUR   prscsx     0.01->0.005      +0.0000   [-0.0004, +0.0004]    0.55
+EUR   prscsx     0.005->0.002     +0.0002   [-0.0003, +0.0007]    0.53
+EUR   prscsx_mt  0.05->0.01       +0.0009   [+0.0006, +0.0011]    0.82
+EUR   prscsx_mt  0.01->0.005      +0.0000   [-0.0002, +0.0002]    0.53
+EUR   prscsx_mt  0.005->0.002     -0.0000   [-0.0002, +0.0001]    0.52
+
+EAS   prscsx     0.05->0.01       +0.0055   [+0.0050, +0.0060]    0.97
+EAS   prscsx     0.01->0.005      +0.0009   [+0.0001, +0.0018]    0.65
+EAS   prscsx     0.005->0.002     -0.0002   [-0.0008, +0.0005]    0.52
+EAS   prscsx_mt  0.05->0.01       +0.0023   [+0.0017, +0.0030]    0.90
+EAS   prscsx_mt  0.01->0.005      +0.0000   [-0.0003, +0.0003]    0.55
+EAS   prscsx_mt  0.005->0.002     +0.0000   [-0.0004, +0.0005]    0.52
+
+=== MT - PRS-CSx margin at each fixed a (validation corr_pred, EAS only) ===
+pop                0.05               0.01              0.005              0.002
+EUR   +0.0012[+0.000,+0.002]  +0.0004[-0.001,+0.001]  +0.0005[-0.000,+0.001]  +0.0002[-0.001,+0.001]
+EAS   +0.0051[+0.002,+0.008]  +0.0019[-0.002,+0.006]  +0.0010[-0.002,+0.004]  +0.0012[-0.002,+0.004]
+
+######## analyze3.py ########
+=== is the tuning half informative below 0.01, or is this noise? ===
+all vs. fixed a=0.01, validation corr_pred, 120 cells
+
+method     rule                      mean d                95% CI
+prscsx     argmax tune (selector)   +0.0014   [+0.0011, +0.0017]
+prscsx     argmin tune (anti)       -0.0009   [-0.0010, -0.0007]
+prscsx     random pick              +0.0003   [+0.0001, +0.0006]
+prscsx     oracle (argmax valid)    +0.0021   [+0.0018, +0.0025]
+
+prscsx_mt  argmax tune (selector)   +0.0007   [+0.0005, +0.0008]
+prscsx_mt  argmin tune (anti)       -0.0005   [-0.0007, -0.0004]
+prscsx_mt  random pick              +0.0000   [-0.0002, +0.0002]
+prscsx_mt  oracle (argmax valid)    +0.0011   [+0.0010, +0.0012]
+
+=== cross-half agreement of the step delta (does tune predict valid?) ===
+method     step           pearson r sign agree
+prscsx     0.01->0.005        0.748      0.70
+prscsx     0.005->0.002       0.602      0.72
+prscsx     0.05->0.01         0.815      0.86
+prscsx_mt  0.01->0.005        0.590      0.68
+prscsx_mt  0.005->0.002       0.639      0.68
+prscsx_mt  0.05->0.01         0.715      0.83
+
+=== zero accounting for the selection contrast (vs fixed 0.01) ===
+method       zero    pos    neg    med|nz   mean|nz
+prscsx         35     66     19   +0.0016   +0.0020
+prscsx_mt      44     57     19   +0.0007   +0.0011
+
+=== differential: what extending below 0.01 does to the MT margin ===
+(MT - PRS-CSx) under selection-over-{0.01,0.005,0.002} minus (MT - PRS-CSx) at fixed 0.01
+
+pooled     -0.0007   [-0.0011, -0.0004]
+EUR        -0.0002   [-0.0004, -0.0000]
+EAS        -0.0013   [-0.0019, -0.0007]
+
+######## analyze4.py ########
+=== marginal gain of extending the SWEEP grid (baseline = select over {0.05,0.01}) ===
+validation corr_pred, paired, cluster bootstrap over 30 replicates
+
+method     added point(s)                mean d                95% CI
+prscsx     +0.005                       +0.0011   [+0.0008, +0.0014]
+prscsx     +0.005,0.002                 +0.0015   [+0.0012, +0.0018]
+
+prscsx_mt  +0.005                       +0.0003   [+0.0002, +0.0005]
+prscsx_mt  +0.005,0.002                 +0.0006   [+0.0004, +0.0007]
+
+=== differential (what it does to the MT - PRS-CSx margin) ===
+negative = truncating at 0.01 was FLATTERING MT by this much
+
+added point(s)             pop         mean d                95% CI
++0.005                     pooled     -0.0007   [-0.0012, -0.0004]
++0.005                     EUR        -0.0000   [-0.0002, +0.0001]
++0.005                     EAS        -0.0014   [-0.0022, -0.0008]
+
++0.005,0.002               pooled     -0.0009   [-0.0013, -0.0006]
++0.005,0.002               EUR        -0.0002   [-0.0004, -0.0001]
++0.005,0.002               EAS        -0.0016   [-0.0023, -0.0011]
+
+=== decay of the adaptive gain per added point (prscsx, pooled) ===
+  {0.05,0.01}                mean 0.6255
+  +0.005                     mean 0.6265  marginal +0.0011
+  +0.005,0.002               mean 0.6270  marginal +0.0004
+
+=== floor-selection frequency within the extended grid ===
+(if the floor keeps winning, the plateau may extend below 0.002)
+
+  prscsx     0.05:5(4%)  0.01:32(27%)  0.005:32(27%)  0.002:51(42%)
+  prscsx_mt  0.05:5(4%)  0.01:40(33%)  0.005:38(32%)  0.002:37(31%)
+
+=== sweep cost at each grid size (base 810 core-hours at G=4, factor (G+1)/2) ===
+  G=4  factor 2.5x  ->  810 core-hours
+  G=5  factor 3.0x  ->  972 core-hours
+  G=6  factor 3.5x  ->  1134 core-hours
+
