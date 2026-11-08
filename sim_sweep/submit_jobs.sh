@@ -17,9 +17,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 #SBATCH --job-name=prscsx_mt_sweep
-#SBATCH --time=03:00:00   # 2.5x the untuned cost: a 4-value a_grid runs 4 MCMC
+#SBATCH --time=03:00:00   # 3.0x the untuned cost: the 5-value a_grid runs 5 MCMC
                           # fits in the auto-phi arm and 1 in the fixed arm. The
-                          # Snakemake path asks 138 min for the same work.
+                          # Snakemake path asks 165 min for the same work.
+                          # Unchanged when the grid went 4 -> 5 values on
+                          # 2026-11-08: this is a per-task walltime, one task per
+                          # replicate, not a controller that must outlast the
+                          # sweep. The 2026-11-06 pilot's max was 29.3 min
+                          # untuned, so 3.0x projects to ~88 min -- 180 min keeps
+                          # ~2x margin, and asking for more would only cost
+                          # scheduling priority and the quickq partition.
 #SBATCH --mem=5G
 #SBATCH --cpus-per-task=1
 # Each task runs 2 phi arms x (per-trait PRS-CSx + PRS-CSx-MT). The two requests

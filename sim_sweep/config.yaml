@@ -51,18 +51,27 @@ ld_hetero: 0.15         # per-population LD divergence (0 => identical LD across
 #
 #   "1"                 one value => no tuning, no tune/val split, scoring on the
 #                       whole n_test cohort. Reproduces the untuned sweep exactly.
-#   "1,0.25,0.05,0.01"  turns on validation tuning. Each (method, pop, trait)
+#   multi-value          turns on validation tuning. Each (method, pop, trait)
 #                       picks its own `a` on a tune_frac slice of the held-out
 #                       cohort and every reported number is scored on the rest.
 #                       Only the auto-phi arm is tuned (phi moves ~3 orders of
-#                       magnitude across the grid), so the cost is (G+1)/2 = 2.5x,
-#                       i.e. ~810 core-h for the 1470-replicate sweep.
-# Do NOT extend below 0.01 without running the boundary check first (next-step 3,
-# design point 4): the slope has collapsed by then and extra grid points only buy
-# selection noise.
-# Tuning ON as of 2026-11-07. Set a_grid back to "1" to reproduce the untuned v2
-# sweep -- and put n_test back to 5000 with it, or the two runs are not comparable.
-a_grid:    "1,0.25,0.05,0.01"
+#                       magnitude across the grid), so the cost is (G+1)/2: 2.5x
+#                       at G=4, 3.0x at G=5, i.e. ~972 core-h for the
+#                       1470-replicate sweep.
+# The floor is 0.005, set by the boundary check of 2026-11-07
+# (sim_sweep/boundary_check/, commit 7405c50). Stopping at 0.01 inflated the EAS
+# MT - PRS-CSx margin by +0.0014 [+0.0008, +0.0022], so 0.005 is in; 0.002 would
+# buy only ~0.0002 more for another 162 core-h, so it is out. Do NOT read the flat
+# pooled sensitivity curve below 0.01 as licence to drop 0.005 -- the flatness is
+# an averaging artifact over cells whose optima sit in different places (tuning-half
+# argmax +0.0014 vs argmin -0.0009 vs random +0.0003). And do NOT drop 0.25 or 1 to
+# hold G=4: 0.25 is selected in 2 of 12 PRS-CSx cells and 0 of 12 MT cells, so
+# dropping it re-introduces the same bias in the same direction, and 1 is the
+# published PRS-CSx default that the `a`=1 caveat is stated against.
+# Tuning ON as of 2026-11-07; extended to 0.005 on 2026-11-08. Set a_grid back to
+# "1" to reproduce the untuned v2 sweep -- and put n_test back to 5000 with it, or
+# the two runs are not comparable.
+a_grid:    "1,0.25,0.05,0.01,0.005"
 tune_frac: 0.5          # share of n_test used to select `a` (the rest scores it)
 
 # ── interpreter ──────────────────────────────────────────────────────────────
