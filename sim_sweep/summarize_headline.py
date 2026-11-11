@@ -180,6 +180,94 @@ def a_distribution(rows):
           % (same, len(rows), 100.0 * same / (len(rows) or 1)))
 
 
+def _per_seed_slopes(pts_by_seed):
+    """OLS slope of delta on rg within each seed; traits averaged first."""
+    slopes = {}
+    for seed, pts in pts_by_seed.items():
+        agg = defaultdict(list)
+        for rg, d in pts:
+            agg[rg].append(d)
+        xs = sorted(agg)
+        if len(xs) < 3:
+            continue
+        ys = [sum(agg[x]) / len(agg[x]) for x in xs]
+        mx = sum(xs) / len(xs)
+        my = sum(ys) / len(ys)
+        den = sum((x - mx) ** 2 for x in xs)
+        if den == 0:
+            continue
+        slopes[seed] = sum((x - mx) * (y - my)
+                           for x, y in zip(xs, ys)) / den
+    return slopes
+
+
+def rg_slope_report(rows, group='rg_frac_grid'):
+    """Per-seed OLS slope of delta on rg, at each (pop, frac_shared_causal).
+
+    The question this answers: does MT's advantage grow with genetic
+    correlation, as a cross-trait method is assumed to? The default MT scheme
+    (cross_trait='mult') couples variances and is documented sign-agnostic, so
+    it borrows evidence about WHICH SNPs are causal but not about the direction
+    of their effects. Under that prior, rising rg makes the traits redundant --
+    fewer independent looks at one sparsity pattern -- so the predicted slope
+    is <= 0. A signed scheme ('mvcs'/'kron') should give a slope > 0, which
+    makes this table the measurement that discriminates between them.
+
+    Unit: one slope per seed, then a one-sample test on those slopes. Paired
+    within seed, so simulation-to-simulation differences in overall difficulty
+    cancel rather than inflating the standard error.
+
+    A single cell's slope is noisy -- validated against a planted slope of
+    -0.0022, per-cell estimates ranged -0.0004 to -0.0035 at sem ~0.0008. So
+    the pooled row, which averages each seed's slopes across sharing levels
+    before testing, is the one to read; the per-cell rows show consistency.
+
+    Rows at frac_shared_causal=0 are reported as inert rather than tested: rg
+    enters the simulator only through the shared-causal covariance, so with no
+    shared causals the replicates are bit-identical across rg and the slope is
+    zero by construction, not by measurement.
+    """
+    cells = defaultdict(lambda: defaultdict(list))   # (pop,frac) -> seed -> pts
+    for r in rows:
+        if r.get('group') != group:
+            continue
+        rg, frac = _f(r.get('rg')), _f(r.get('frac_shared_causal'))
+        if rg is None or frac is None:
+            continue
+        cells[(r['pop'], frac)][r['seed']].append((rg, r['delta']))
+    if not cells:
+        return
+
+    print('\n--- slope of delta on rg, by population and causal sharing ---')
+    print('  (negative = MT helps LESS as traits grow more correlated)')
+    print('  %-4s %6s %12s %10s %10s %12s'
+          % ('pop', 'frac', 'slope/unit', 'sem', 'p', 'd(rg 0->0.8)'))
+
+    pooled = defaultdict(dict)        # pop -> seed -> [slopes over frac>0]
+    for (pop, frac) in sorted(cells, key=lambda k: (k[0], k[1])):
+        slopes = _per_seed_slopes(cells[(pop, frac)])
+        if not slopes:
+            continue
+        vals = list(slopes.values())
+        mean, sem, t, pv, n = _one_sample(vals)
+        # rg is inert by construction at frac=0; what survives is float dust.
+        if abs(mean) < 1e-12 and (sem != sem or sem < 1e-12):
+            print('  %-4s %6.2f %12s   rg inert by construction '
+                  '(bit-identical replicates)' % (pop, frac, '0'))
+            continue
+        print('  %-4s %6.2f %+12.5f %10.5f %10.3g %+12.5f'
+              % (pop, frac, mean, sem, pv, 0.8 * mean))
+        if frac > 0:
+            for seed, v in slopes.items():
+                pooled[pop].setdefault(seed, []).append(v)
+
+    for pop in sorted(pooled):
+        vals = [sum(v) / len(v) for v in pooled[pop].values()]
+        mean, sem, t, pv, n = _one_sample(vals)
+        print('  %-4s %6s %+12.5f %10.5f %10.3g %+12.5f   <- pooled, frac>0, '
+              'n=%d seeds' % (pop, 'all', mean, sem, pv, 0.8 * mean, n))
+
+
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else 'results_v4/deltas_pred.csv'
     if not os.path.exists(path):
@@ -198,6 +286,10 @@ def main():
     for label, rs in (('auto-phi', auto), ('fixed-phi', fixed)):
         if rs:
             by_key(rs, 'pop', 'mean delta by population, %s' % label)
+    for label, rs in (('auto-phi', auto), ('fixed-phi', fixed)):
+        if rs:
+            print('\n==== %s ====' % label)
+            rg_slope_report(rs)
     if auto:
         by_key(auto, 'group', 'mean delta by scenario group, auto-phi')
         by_key(auto, 'scenario', 'mean delta by scenario, auto-phi '
