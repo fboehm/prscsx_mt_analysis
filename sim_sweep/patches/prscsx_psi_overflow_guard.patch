@@ -1,0 +1,70 @@
+diff --git a/mcmc_gtb.py b/mcmc_gtb.py
+index dd444f4..45cfc72 100644
+--- a/mcmc_gtb.py
++++ b/mcmc_gtb.py
+@@ -103,12 +103,40 @@ def mcmc(a, b, phi, snp_dict, beta_mrg, frq_dict, idx_dict, n, ld_blk, blk_size,
+         for jj in range(p_tot):
+             while True:
+                 try:
+-                    psi[jj] = gigrnd.gigrnd(a-0.5*n_grp[jj], 2.0*delta[jj], xx[jj])
++                    psi[jj] = gigrnd.gigrnd(float(a-0.5*n_grp[jj,0]), float(2.0*delta[jj,0]), float(xx[jj,0]))
+                 except:
+                     continue
+                 else:
+                     break
+         psi[psi>1] = 1.0
++        # Overflow guard on the lower tail of psi. Once the GIG shape a-0.5*n_grp
++        # goes negative (a < 0.5 at n_grp=1), the psi -> beta -> xx -> psi feedback
++        # can run a null SNP's psi below 1/float64_max = 5.563e-309; from there
++        # 1.0/psi is inf, dinvt below is non-finite and linalg.cholesky raises
++        # "array must not contain infs or NaNs". psi reaching exactly 0 is worse:
++        # gigrnd raises ZeroDivisionError and the bare `except` above retries it
++        # forever, hanging the job rather than failing it.
++        #   1e-290 keeps 1.0/psi <= 1e290, i.e. 18 orders below float64 max, and is
++        # deliberately NOT PRScsx_mt's EFF_PSI_FLOOR = 1e-20. The two constants are
++        # not comparable: 1e-20 sits in the extreme tail of the MT product
++        # psi_pp*psi_t but in the bulk of psi here. Measured 2026-11-10 at n_snp=2000,
++        # n_iter=5000: with a 1e-20 clamp active ~2.1% of SNPs are clamped per
++        # iteration (MT's own floor: 0.73%), and unclamped 40-47% of psi values sit
++        # below 1e-20. On two boundary-check replicates it moved PRS-CSx corr_pred by
++        # -0.0019 overall and -0.0031 in EAS (95% CI [-0.0045, -0.0017], 27/32 cells
++        # negative, p = 3e-4) while leaving PRS-CSx-MT bit-identical -- i.e. it is a
++        # statistical intervention that handicaps the baseline in MT's favour, not a
++        # numerical guard.
++        #   At 1e-290 it is a guard and nothing else. Measured activity: 0 firings in
++        # the npop_p1 a=0.01 arms, and 13-19 firings over 5000 iterations (never more
++        # than one SNP at a time) at a=0.005 -- exactly the runaway events that
++        # otherwise kill the job. It never fires with two or more populations: min psi
++        # over 5000 iterations is 1.7e-199 at a=0.005 and 1.2e-195 to 3.0e-235 at
++        # a=0.002, 74 to 110 orders above the clamp. The 48 multi-population scenarios
++        # and the committed a-grid boundary check are therefore bit-identical with and
++        # without it. At a=1 psi never goes below 1.8e-09, so the untuned arm -- and
++        # comparability with the v2 sweep and PRSxtra -- is untouched.
++        psi[psi<1e-290] = 1e-290
+ 
+         if phi_updt == True:
+             w = random.gamma(1.0, 1.0/(phi+1.0))
+@@ -169,7 +197,7 @@ def mcmc(a, b, phi, snp_dict, beta_mrg, frq_dict, idx_dict, n, ld_blk, blk_size,
+ 
+         with open(eff_file, 'w') as ff:
+             for snp, bp, a1, a2, beta in zip(snp_pp, bp_pp, a1_pp, a2_pp, beta_est[pp]):
+-                ff.write('%d\t%s\t%d\t%s\t%s\t%.6e\n' % (chrom, snp, bp, a1, a2, beta))
++                ff.write('%d\t%s\t%d\t%s\t%s\t%.6e\n' % (chrom, snp, bp, a1, a2, beta.item()))
+ 
+     if meta == 'TRUE':
+         if phi_updt == True:
+@@ -183,12 +211,12 @@ def mcmc(a, b, phi, snp_dict, beta_mrg, frq_dict, idx_dict, n, ld_blk, blk_size,
+                     ff.write(('%d\t%s\t%d\t%s\t%s' + '\t%.6e'*n_pst + '\n') % (chrom, snp, bp, a1, a2, *beta))
+             else:
+                 for snp, bp, a1, a2, beta in zip(snp_dict['SNP'], snp_dict['BP'], snp_dict['A1'], snp_dict['A2'], mu):
+-                    ff.write('%d\t%s\t%d\t%s\t%s\t%.6e\n' % (chrom, snp, bp, a1, a2, beta))
++                    ff.write('%d\t%s\t%d\t%s\t%s\t%.6e\n' % (chrom, snp, bp, a1, a2, beta.item()))
+ 
+ 
+     # print estimated phi
+     if phi_updt == True:
+-        print('... Estimated global shrinkage parameter: %1.2e ...' % phi_est )
++        print('... Estimated global shrinkage parameter: %1.2e ...' % np.float64(phi_est).item())
+ 
+     print('... Done ...')
+ 
