@@ -121,6 +121,13 @@ _PHI_MODES = (('auto', None), ('fixed', _FIXED_PHI))
 # reproduces the untuned sweep exactly: no extra output level, no tune/val split,
 # scoring on the whole test cohort.
 _A_DEFAULT = 1.0
+# Cross-trait sharing schemes accepted by mcmc_gtb_mt. 'mult' couples variances
+# only (sign-agnostic); 'mvcs' and 'kron' learn signed correlation matrices.
+# Validated on the way in because mcmc_gtb_mt branches on equality: an
+# unrecognised value matches no branch and silently runs as if no cross-trait
+# structure were requested, which would look like a null result rather than a
+# configuration error.
+_CROSS_TRAIT_MODES = ('mult', 'mvcs', 'kron')
 # Which phi arms get the grid. 'auto' only: posterior-mean phi moves ~3 orders of
 # magnitude across the a grid (sparsity diagnostics, summary_followups.txt block
 # [3]), so a fixed-phi arm with varying a sits at an incoherent operating point --
@@ -140,7 +147,7 @@ _RESULT_FIELDS = [
     'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
     'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'corr_pred_tune',
-    'a', 'a_tuned', 'time_s',
+    'a', 'a_tuned', 'time_s', 'cross_trait',
     'schema', 'prscsx_sha', 'prscsx_mt_sha',
 ]
 # One row per (pop, trait, method, phi_mode) holding the SELECTED `a`. When the
@@ -149,7 +156,7 @@ _A_GRID_FIELDS = [
     'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
     'method', 'phi_mode', 'phi', 'a', 'selected',
-    'corr', 'corr_pred', 'corr_pred_tune', 'time_s',
+    'corr', 'corr_pred', 'corr_pred_tune', 'time_s', 'cross_trait',
     'schema', 'prscsx_sha', 'prscsx_mt_sha',
 ]
 # `corr`      : effect-recovery — corr(estimated posterior effects, true effects)
@@ -278,10 +285,18 @@ def _run_prscsx(ref_dir, bim_prefix, sst_files, n_gwas_per_pop,
 # ── multi-trait PRS-CSx-MT ────────────────────────────────────────────────────
 def _run_prscsx_mt(ref_dir, bim_prefix, sst_files_dict, n_gwas_dict,
                    pop_labels, out_dir, out_name, n_trait,
-                   rho_e, n_iter, n_burnin, seed, phi=None, a=_A_DEFAULT):
+                   rho_e, n_iter, n_burnin, seed, phi=None, a=_A_DEFAULT,
+                   cross_trait='mult'):
     """Run PRS-CSx-MT for all traits jointly (phi=None => estimate it).
 
-    `a` is the shrinkage-prior shape; a=1 is the PRS-CSx default."""
+    `a` is the shrinkage-prior shape; a=1 is the PRS-CSx default.
+
+    `cross_trait` selects how traits share information: 'mult' (default) scales
+    psi by trait-specific modulators and is sign-agnostic, so it borrows
+    evidence about which SNPs are causal but not about effect direction; 'mvcs'
+    and 'kron' learn signed correlation matrices in-sampler. The sweep through
+    2026-11-11 ran 'mult' exclusively, which is why its rg axis measured the one
+    scheme that cannot use rg."""
     os.makedirs(out_dir, exist_ok=True)
     n_pop = len(pop_labels)
     chrom = 1
@@ -309,7 +324,8 @@ def _run_prscsx_mt(ref_dir, bim_prefix, sst_files_dict, n_gwas_dict,
         n_gwas_dict, ld_blk, blk_size,
         n_iter, n_burnin, 5, pop_labels, chrom,
         out_dir, out_name, 'FALSE', 'FALSE', seed,
-        n_trait=n_trait, rho_e=rho_e, lambda_psi=None)
+        n_trait=n_trait, rho_e=rho_e, lambda_psi=None,
+        cross_trait=cross_trait)
 
 
 # ── evaluation ────────────────────────────────────────────────────────────────
@@ -443,6 +459,13 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
     n_overlap = scenario.get('n_overlap', None)
     group     = scenario.get('group', 'ungrouped')
     frac      = scenario.get('frac_shared_causal', 1.0)
+    cross_trait = scenario.get('cross_trait', 'mult')
+    if cross_trait not in _CROSS_TRAIT_MODES:
+        raise ValueError(
+            'scenario %r: cross_trait=%r is not one of %s. Failing here rather '
+            'than passing it through, because mcmc_gtb_mt branches on equality '
+            'and an unknown value would run as plain shared-psi and look like a '
+            'null result.' % (name, cross_trait, ', '.join(_CROSS_TRAIT_MODES)))
 
     if 'n_gwas' in scenario:
         n_gwas_list = scenario['n_gwas']
@@ -553,7 +576,8 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
         out_mt = os.path.join(arm_dir, 'prscsx_mt')
         _run_prscsx_mt(data_dir, bim, sst_files_mt, n_gwas_dict, pop_labels,
                        out_mt, 'prs_mt', n_trait, rho_e, n_iter, n_burnin,
-                       _derive_seed(seed, 2), phi=phi, a=a)
+                       _derive_seed(seed, 2), phi=phi, a=a,
+                       cross_trait=cross_trait)
         out['prscsx_mt'] = (
             _evaluate(out_mt, 'prs_mt', data_dir, pop_labels,
                       n_trait=n_trait, is_mt=True),
@@ -584,6 +608,9 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
                     'h2': h2[tt] if tt < len(h2) else h2[-1],
                     'phi_mode': phi_mode,
                     'phi': ('auto' if phi is None else phi),
+                    # Describes the MT arm; carried on the baseline rows too so
+                    # a cell can be identified from any single row.
+                    'cross_trait': cross_trait,
                 }
                 for method in ('prscsx', 'prscsx_mt'):
                     a_sel = a_vals[0]

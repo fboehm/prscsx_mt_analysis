@@ -201,7 +201,7 @@ def _per_seed_slopes(pts_by_seed):
     return slopes
 
 
-def rg_slope_report(rows, group='rg_frac_grid'):
+def _rg_slope_one_group(rows, group):
     """Per-seed OLS slope of delta on rg, at each (pop, frac_shared_causal).
 
     The question this answers: does MT's advantage grow with genetic
@@ -226,6 +226,24 @@ def rg_slope_report(rows, group='rg_frac_grid'):
     enters the simulator only through the shared-causal covariance, so with no
     shared causals the replicates are bit-identical across rg and the slope is
     zero by construction, not by measurement.
+
+    Measured on results_v4 (group rg_frac_grid, 1470 replicates), slope per
+    unit rg, f=0.25 / 0.50 / 0.75 / 1.00 then pooled:
+
+        EUR auto-phi   -0.00031  -0.00085  -0.00136  -0.00210   -0.00115 (6.5e-08)
+        EUR fixed-phi  -0.00008  -0.00087  -0.00100  -0.00174   -0.00093 (2.2e-09)
+        EAS auto-phi   -0.00001  +0.00060  +0.00113  -0.00138   +0.00009 (0.79)
+
+    EUR is monotone in frac in both phi arms, about -0.0024 per unit frac,
+    which is what the mechanism requires: rg can only create redundancy at
+    shared causal variants, so its damage scales with how many there are.
+    Replicating across the two phi arms rules out the `a`-selection step.
+
+    EAS is a null, with signs flipping across sharing levels. Commit a2fa9d4's
+    message claims EAS "shows the same sign more weakly"; that was read off the
+    f=1.0 row alone and is wrong. The sign-agnostic explanation survives,
+    because it predicts the null -- rg modulates only the cross-trait channel,
+    and in EAS the dominant channel is cross-ancestry borrowing.
     """
     cells = defaultdict(lambda: defaultdict(list))   # (pop,frac) -> seed -> pts
     for r in rows:
@@ -238,7 +256,7 @@ def rg_slope_report(rows, group='rg_frac_grid'):
     if not cells:
         return
 
-    print('\n--- slope of delta on rg, by population and causal sharing ---')
+    print('\n--- slope of delta on rg, group=%s ---' % group)
     print('  (negative = MT helps LESS as traits grow more correlated)')
     print('  %-4s %6s %12s %10s %10s %12s'
           % ('pop', 'frac', 'slope/unit', 'sem', 'p', 'd(rg 0->0.8)'))
@@ -266,6 +284,26 @@ def rg_slope_report(rows, group='rg_frac_grid'):
         mean, sem, t, pv, n = _one_sample(vals)
         print('  %-4s %6s %+12.5f %10.5f %10.3g %+12.5f   <- pooled, frac>0, '
               'n=%d seeds' % (pop, 'all', mean, sem, pv, 0.8 * mean, n))
+
+
+def rg_slope_report(rows, group=None):
+    """Run the slope table for `group`, or for every group that varies rg.
+
+    Auto-discovery matters for the cross_trait comparison: the mvcs/kron cells
+    live in their own scenario group but are paired against the mult cells by
+    construction (identical simulation parameters and seeds, so identical data),
+    and the comparison is just their two slopes side by side.
+    """
+    if group is not None:
+        _rg_slope_one_group(rows, group)
+        return
+    spread = defaultdict(set)
+    for r in rows:
+        rg = _f(r.get('rg'))
+        if rg is not None:
+            spread[r.get('group')].add(rg)
+    for g in sorted(k for k, v in spread.items() if len(v) >= 3):
+        _rg_slope_one_group(rows, g)
 
 
 def main():

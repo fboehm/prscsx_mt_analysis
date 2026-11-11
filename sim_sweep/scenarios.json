@@ -703,5 +703,62 @@
     3000
    ]
   ]
+ },
+ {
+  "name": "mvcs_rg0.0_f1.00",
+  "group": "cross_trait_mvcs",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "cross_trait": "mvcs"
+ },
+ {
+  "name": "mvcs_rg0.4_f1.00",
+  "group": "cross_trait_mvcs",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.4,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "cross_trait": "mvcs"
+ },
+ {
+  "name": "mvcs_rg0.8_f1.00",
+  "group": "cross_trait_mvcs",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "cross_trait": "mvcs"
  }
 ]

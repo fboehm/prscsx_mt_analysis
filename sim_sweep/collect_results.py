@@ -23,7 +23,7 @@ FIELDS = [
     'scenario', 'group', 'seed', 'pop', 'trait', 'n_gwas',
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
     'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'corr_pred_tune',
-    'a', 'a_tuned', 'time_s',
+    'a', 'a_tuned', 'time_s', 'cross_trait',
     'schema', 'prscsx_sha', 'prscsx_mt_sha',
 ]
 # `a` / `a_tuned` / `corr_pred_tune` are empty for result.csv files written
