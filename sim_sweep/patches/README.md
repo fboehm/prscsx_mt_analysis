@@ -44,13 +44,38 @@ guard and nothing else:
 Full derivation and the measurement tables are in the 2026-11-10 section of
 `PROJECT_NOTES_prscsx_mt.md`.
 
-## Applying it
+## Where it lives
 
-    cd <parent of this repo>/PRScsx        # or $PRSCSX_DIR
-    git apply --check ../prscsx_mt_analysis/sim_sweep/patches/prscsx_psi_overflow_guard.patch
-    git apply         ../prscsx_mt_analysis/sim_sweep/patches/prscsx_psi_overflow_guard.patch
-    grep -n 'psi\[psi<1e-290\]' mcmc_gtb.py    # expect one hit
+As of 2026-11-10 the guard is a commit, not a patch to apply by hand:
 
-The patch also carries the NumPy-2 compatibility casts this project already relies
-on (`float(a-0.5*n_grp[jj,0])` and friends), so on a clean checkout it is the only
-thing that needs applying.
+| | |
+|---|---|
+| fork | `https://github.com/fboehm/PRScsx` |
+| guard | `4db1f54` "Guard psi against float64 underflow at negative GIG shape" |
+| NumPy 2 casts | `e511006` "NumPy 2 compatibility casts (no statistical change)" |
+| base | `bdf5f30`, upstream `getian107/PRScsx` master |
+
+The two commits sit on top of upstream master. Nothing else in the fork differs
+from upstream, so `git diff upstream/master..master` is the whole modification.
+
+`bdf5f30` is seven commits after `37eaeb3`, the commit every result before
+2026-11-10 was produced at, but all seven touch `README.md` only: the blob hashes
+of `PRScsx.py`, `gigrnd.py`, `mcmc_gtb.py` and `parse_genet.py` are identical
+across that range, so rebasing onto it did not change the sampler and earlier
+results remain attributable.
+
+Deploy by pulling:
+
+    cd $PRSCSX_DIR
+    git remote set-url origin https://github.com/fboehm/PRScsx.git
+    git pull
+    grep -c 'psi\[psi<1e-290\]' mcmc_gtb.py    # expect 1
+
+`prscsx_psi_overflow_guard.patch` in this directory is kept as a record of the
+exact diff, independent of GitHub. It is no longer the deployment mechanism.
+
+## Still missing
+
+Nothing pins which comparator commit produced a given result. A sweep run records
+no PRScsx SHA, so the only link between `results_v3/` and `4db1f54` is this file.
+Worth writing the SHA into the per-replicate output.
