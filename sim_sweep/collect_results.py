@@ -8,6 +8,7 @@ Usage:
     python collect_results.py                          # writes all_results.csv, deltas.csv
     python collect_results.py /path/to/results         # custom results dir
     python collect_results.py results out.csv          # custom dir + all_results file
+    python collect_results.py results --allow-mixed    # merge mismatched schemas anyway
 """
 
 import csv
@@ -23,6 +24,7 @@ FIELDS = [
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
     'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'corr_pred_tune',
     'a', 'a_tuned', 'time_s',
+    'schema', 'prscsx_sha', 'prscsx_mt_sha',
 ]
 # `a` / `a_tuned` / `corr_pred_tune` are empty for result.csv files written
 # before the sparsity grid existed; DictWriter's restval fills them in.
@@ -38,8 +40,60 @@ def _f(x):
         return float('nan')
 
 
-def collect(results_dir, out_file):
+def _check_uniform(headers, provenance, allow_mixed):
+    """Refuse to merge result.csv files from different schemas or sampler commits.
+
+    This is not belt-and-braces. The DictWriter below uses extrasaction='ignore'
+    and the default restval, so a file written against an older schema merges
+    silently: its unknown columns are dropped and the ones it lacks are filled
+    with ''. On 2026-11-10 a 2026-09 tree (corr + time_s, no corr_pred) sat one
+    bare `snakemake` invocation away from being collected into the headline
+    numbers exactly that way, with blank prediction cells. Mixing is nearly
+    always an accident, so it aborts; --allow-mixed is the deliberate override.
+    """
+    problems = []
+
+    if len(headers) > 1:
+        variants = sorted(headers.items(), key=lambda kv: -len(kv[1]))
+        ref = set(variants[0][0])
+        lines = ['%d distinct result.csv schemas:' % len(variants)]
+        for cols, files in variants:
+            extra   = [c for c in cols if c not in ref]
+            missing = [c for c in ref if c not in cols]
+            lines.append('  %4d file(s), e.g. %s' % (len(files), files[0]))
+            if extra:
+                lines.append('         extra columns:   %s' % ', '.join(extra))
+            if missing:
+                lines.append('         missing columns: %s' % ', '.join(missing))
+        problems.append('\n'.join(lines))
+
+    if len(provenance) > 1:
+        lines = ['%d distinct (schema, PRScsx, PRScsx_mt) provenances:' % len(provenance)]
+        for (sch, csx, mt), n in sorted(provenance.items(), key=lambda kv: -kv[1]):
+            lines.append('  %7d rows  schema=%-4s PRScsx=%-18s PRScsx_mt=%s'
+                         % (n, sch or '?', csx or '?', mt or '?'))
+        problems.append('\n'.join(lines))
+
+    if not problems:
+        if provenance:
+            sch, csx, mt = next(iter(provenance))
+            print('Provenance: schema=%s  PRScsx=%s  PRScsx_mt=%s'
+                  % (sch or 'unversioned', csx or 'unrecorded', mt or 'unrecorded'))
+        return
+
+    msg = '\n\n'.join(problems)
+    if allow_mixed:
+        print('WARNING: merging a mixed results tree (--allow-mixed).\n\n' + msg + '\n')
+        return
+    sys.exit('ERROR: refusing to collect a mixed results tree.\n\n' + msg +
+             '\n\nRe-run the stale replicates, collect the trees separately, or '
+             'pass --allow-mixed if you really do mean to merge them.')
+
+
+def collect(results_dir, out_file, allow_mixed=False):
     all_rows, missing = [], []
+    headers    = defaultdict(list)   # header tuple -> representative file paths
+    provenance = defaultdict(int)    # (schema, prscsx_sha, prscsx_mt_sha) -> rows
     for scenario_name in sorted(os.listdir(results_dir)):
         scenario_dir = os.path.join(results_dir, scenario_name)
         if not os.path.isdir(scenario_dir):
@@ -50,7 +104,16 @@ def collect(results_dir, out_file):
                 missing.append(os.path.join(scenario_name, seed_dir))
                 continue
             with open(result_file) as fh:
-                all_rows.extend(list(csv.DictReader(fh)))
+                reader = csv.DictReader(fh)
+                rows   = list(reader)
+            headers[tuple(reader.fieldnames or ())].append(
+                os.path.join(scenario_name, seed_dir, 'result.csv'))
+            for _r in rows:
+                provenance[(_r.get('schema', ''), _r.get('prscsx_sha', ''),
+                            _r.get('prscsx_mt_sha', ''))] += 1
+            all_rows.extend(rows)
+
+    _check_uniform(headers, provenance, allow_mixed)
 
     with open(out_file, 'w', newline='') as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS, extrasaction='ignore')
@@ -160,15 +223,17 @@ def summarize_scenarios(deltas):
 
 
 def main():
-    results_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(_SCRIPT_DIR, 'results')
-    out_file    = sys.argv[2] if len(sys.argv) > 2 else os.path.join(_SCRIPT_DIR, 'all_results.csv')
+    argv        = [a for a in sys.argv[1:] if a != '--allow-mixed']
+    allow_mixed = len(argv) != len(sys.argv) - 1
+    results_dir = argv[0] if len(argv) > 0 else os.path.join(_SCRIPT_DIR, 'results')
+    out_file    = argv[1] if len(argv) > 1 else os.path.join(_SCRIPT_DIR, 'all_results.csv')
     deltas_file = os.path.join(os.path.dirname(out_file), 'deltas.csv')
 
     if not os.path.isdir(results_dir):
         print('ERROR: results directory not found: %s' % results_dir)
         sys.exit(1)
 
-    rows = collect(results_dir, out_file)
+    rows = collect(results_dir, out_file, allow_mixed=allow_mixed)
     if not rows:
         return
 

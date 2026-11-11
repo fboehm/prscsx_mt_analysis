@@ -18,6 +18,7 @@ import csv
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import time
 
@@ -40,6 +41,44 @@ if not os.path.isdir(_mt_dir):
 if not os.path.isdir(_prscsx_dir):
     sys.exit('ERROR: PRScsx not found at %s. Clone it as a sibling of this '
              'repo, or set PRSCSX_DIR.' % _prscsx_dir)
+
+# ── provenance ────────────────────────────────────────────────────────────────
+# Nothing else ties a result to the code that produced it. Snakemake watches this
+# rule's params, not these sibling checkouts, so editing PRScsx or PRScsx_mt
+# leaves existing result.csv files looking current -- and collect_results.py
+# merges mismatched schemas silently (DictWriter restval). Stamping both commits
+# and a schema number onto every row makes a result traceable and lets the
+# collector refuse to mix runs.
+SCHEMA_VERSION = 2   # 1 = pre-2026-10 analytic schema (corr + time_s, no
+                     #     corr_pred/corr_pred_tune/a/a_tuned)
+                     # 2 = realistic schema + these provenance columns
+
+
+def _git_sha(path):
+    """Short HEAD of the checkout at `path`, suffixed '-dirty' if it has edits.
+
+    A dirty tree makes a bare SHA a lie, which matters here: the PRScsx psi
+    overflow guard lived as an uncommitted edit for half a day before it was
+    committed, and a result stamped with the clean SHA would have misreported
+    which sampler ran.
+    """
+    try:
+        rev = subprocess.run(['git', '-C', path, 'rev-parse', '--short', 'HEAD'],
+                             capture_output=True, text=True, timeout=30)
+        if rev.returncode != 0:
+            return 'unknown'
+        sha = rev.stdout.strip()
+        st = subprocess.run(['git', '-C', path, 'status', '--porcelain'],
+                            capture_output=True, text=True, timeout=30)
+        if st.returncode == 0 and st.stdout.strip():
+            sha += '-dirty'
+        return sha
+    except (OSError, subprocess.SubprocessError):
+        return 'unknown'
+
+
+PRSCSX_SHA    = _git_sha(_prscsx_dir)
+PRSCSX_MT_SHA = _git_sha(_mt_dir)
 
 sys.path.insert(0, _repo_root)   # simulate_mt.py lives in this repo
 sys.path.insert(0, _mt_dir)      # mcmc_gtb_mt.py, parse_genet_mt.py (method)
@@ -102,6 +141,7 @@ _RESULT_FIELDS = [
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
     'method', 'phi_mode', 'phi', 'corr', 'corr_pred', 'corr_pred_tune',
     'a', 'a_tuned', 'time_s',
+    'schema', 'prscsx_sha', 'prscsx_mt_sha',
 ]
 # One row per (pop, trait, method, phi_mode) holding the SELECTED `a`. When the
 # grid has several values the full grid also goes to a_grid.csv beside result.csv.
@@ -110,6 +150,7 @@ _A_GRID_FIELDS = [
     'rg', 'frac_shared_causal', 'n_pop', 'n_trait', 'rho_pheno', 'h2',
     'method', 'phi_mode', 'phi', 'a', 'selected',
     'corr', 'corr_pred', 'corr_pred_tune', 'time_s',
+    'schema', 'prscsx_sha', 'prscsx_mt_sha',
 ]
 # `corr`      : effect-recovery — corr(estimated posterior effects, true effects)
 #               (kept for continuity with the analytic sweep).
@@ -651,6 +692,15 @@ def main():
         args.seed, args.n_snp, args.n_iter, args.n_burnin, args.out_dir,
         sim_mode=args.sim_mode, n_ref=args.n_ref, n_test=args.n_test,
         ld_hetero=args.ld_hetero, a_grid=a_grid, tune_frac=args.tune_frac)
+
+    # Stamp provenance on every row (see SCHEMA_VERSION above). Done here rather
+    # than in run_replicate so there is exactly one place it can be forgotten.
+    _stamp = {'schema': SCHEMA_VERSION,
+              'prscsx_sha': PRSCSX_SHA, 'prscsx_mt_sha': PRSCSX_MT_SHA}
+    for _row in rows:
+        _row.update(_stamp)
+    for _row in grid_rows:
+        _row.update(_stamp)
 
     rep_dir  = os.path.join(args.out_dir, args.scenario_name, 'seed_%d' % args.seed)
     csv_path = os.path.join(rep_dir, 'result.csv')

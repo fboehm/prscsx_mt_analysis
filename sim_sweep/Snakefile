@@ -74,6 +74,7 @@ Notes
 """
 
 import json
+import subprocess
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -93,6 +94,41 @@ def _anchor(p, default):
     return p if Path(p).is_absolute() else str(SWEEP_DIR / p)
 
 RESULTS_DIR    = _anchor(config.get("results_dir"), "results")
+
+# ---------------------------------------------------------------------------
+# Sampler provenance. Resolved exactly as run_one_replicate.py resolves them
+# (config first, then the sibling layout), and fed into run_replicate's params
+# so that editing PRScsx or PRScsx_mt invalidates existing replicates. Without
+# this, Snakemake sees only this rule's own params: on 2026-11-10 the PRScsx psi
+# overflow guard changed the baseline sampler and the shakedown's result.csv
+# files still looked current -- only the unrelated a_grid change re-ran them.
+# These two params are intentionally unused by the shell command below; they are
+# here to be rerun triggers. Do not "clean them up".
+# ---------------------------------------------------------------------------
+_SIBLINGS     = SWEEP_DIR.parent.parent
+PRSCSX_DIR    = config.get("prscsx_dir")    or str(_SIBLINGS / "PRScsx")
+PRSCSX_MT_DIR = config.get("prscsx_mt_dir") or str(_SIBLINGS / "PRScsx_mt")
+
+
+def _git_sha(path):
+    """Short HEAD of `path`, '-dirty' if it has uncommitted edits, else 'unknown'."""
+    try:
+        rev = subprocess.run(["git", "-C", str(path), "rev-parse", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=30)
+        if rev.returncode != 0:
+            return "unknown"
+        sha = rev.stdout.strip()
+        st = subprocess.run(["git", "-C", str(path), "status", "--porcelain"],
+                            capture_output=True, text=True, timeout=30)
+        if st.returncode == 0 and st.stdout.strip():
+            sha += "-dirty"
+        return sha
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+PRSCSX_SHA    = _git_sha(PRSCSX_DIR)
+PRSCSX_MT_SHA = _git_sha(PRSCSX_MT_DIR)
 RUNNER         = str(SWEEP_DIR / "run_one_replicate.py")
 COLLECTOR      = str(SWEEP_DIR / "collect_results.py")
 PRSXTRA_RUNNER = str(SWEEP_DIR / "compare_prsxtra.py")
@@ -263,6 +299,8 @@ rule run_replicate:
         a_grid         = config.get("a_grid", "1"),
         tune_frac      = config.get("tune_frac", 0.5),
         keep_data      = config.get("keep_data", False),
+        prscsx_sha     = PRSCSX_SHA,      # rerun triggers; see the note above
+        prscsx_mt_sha  = PRSCSX_MT_SHA,
     threads: 1
     resources:
         runtime       = replicate_runtime,   # minutes
