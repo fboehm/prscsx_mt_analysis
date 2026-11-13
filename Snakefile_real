@@ -106,7 +106,7 @@ rule download_snpinfo:
         ref_dir=REF_DIR,
     shell:
         "mkdir -p {params.ref_dir} && "
-        "wget -q -L -O {output} '{params.url}'"
+        "wget -nv -L -O {output} '{params.url}'"
 
 
 # 2. Download and extract 1KG LD reference blocks per population
@@ -124,7 +124,7 @@ rule download_ldblk:
     shell:
         """
         mkdir -p {params.ref_dir}
-        wget -q -L -O {params.ref_dir}/ldblk_1kg_{params.pop_lower}.tar.gz \
+        wget -nv -L -O {params.ref_dir}/ldblk_1kg_{params.pop_lower}.tar.gz \
             '{params.url}'
         tar -zxf {params.ref_dir}/ldblk_1kg_{params.pop_lower}.tar.gz \
             -C {params.ref_dir}
@@ -152,14 +152,18 @@ rule download_pan_ukbb:
         bgz=f"{RAW_DIR}/{{trait}}_pan_ukbb.tsv.bgz",
     params:
         url=lambda wc: (
+            # {trait_type}-{phenocode}-{sex}-{modifier}; defaults suit the
+            # biochemistry biomarkers (see pan_ukbb_filename in Snakefile_prsxtra)
             f"{PAN_UKBB_BASE}/"
-            f"{config['pan_ukbb'][wc.trait]['phenocode']}"
-            f"-{config['pan_ukbb'][wc.trait]['sex']}.tsv.bgz"
+            f"{config['pan_ukbb'][wc.trait].get('trait_type', 'biomarkers')}"
+            f"-{config['pan_ukbb'][wc.trait]['phenocode']}"
+            f"-{config['pan_ukbb'][wc.trait]['sex']}"
+            f"-{config['pan_ukbb'][wc.trait].get('modifier', 'irnt')}.tsv.bgz"
         ),
         raw_dir=RAW_DIR,
     shell:
         "mkdir -p {params.raw_dir} && "
-        "wget -q -L -O {output.bgz} '{params.url}'"
+        "wget -nv -L -O {output.bgz} '{params.url}'"
 
 
 # 5. Format Pan-UKBB → PRScsx_mt input format.

@@ -33,24 +33,34 @@ populations: ["EUR", "EAS", "AFR", "AMR"]
 traits: ["LDL", "HDL", "TG"]
 
 # source: pan_ukbb -> downloaded and split per population by scripts/format_pan_ukbb.py
-# n: GWAS sample size per population (Pan-UKBB manifest; update from the
-#    N printed by format_pan_ukbb.py if it differs materially).
+# trait_type / modifier: parts of the Pan-UKBB flat-file name,
+#    {trait_type}-{phenocode}-{sex}-{modifier}.tsv.bgz. irnt = inverse-rank-normal
+#    transformed, so BETA is in SD units of the transformed trait.
+# n: GWAS sample size per population, from n_cases_<POP> in the Pan-UKBB
+#    phenotype manifest (sumstats_release/phenotype_manifest.tsv.bgz), read
+#    2026-11-13.
 sumstats:
   LDL:
     source: pan_ukbb
+    trait_type: biomarkers
     phenocode: "30780"
     sex: both_sexes
-    n: {EUR: 343621, EAS: 3951, AFR: 6435, AMR: 980}
+    modifier: irnt
+    n: {EUR: 400223, EAS: 2568, AFR: 6200, AMR: 938}
   HDL:
     source: pan_ukbb
+    trait_type: biomarkers
     phenocode: "30760"
     sex: both_sexes
-    n: {EUR: 343621, EAS: 3951, AFR: 6435, AMR: 980}
+    modifier: irnt
+    n: {EUR: 367021, EAS: 2342, AFR: 5754, AMR: 854}
   TG:
     source: pan_ukbb
+    trait_type: biomarkers
     phenocode: "30870"
     sex: both_sexes
-    n: {EUR: 343621, EAS: 3951, AFR: 6435, AMR: 980}
+    modifier: irnt
+    n: {EUR: 400639, EAS: 2570, AFR: 6211, AMR: 937}
 
 # --- Fits (identical for every method so the comparison is fair) -------------
 fit:

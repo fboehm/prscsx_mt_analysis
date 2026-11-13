@@ -103,9 +103,21 @@ def file_spec(trait, pop):
     return spec
 
 
+def pan_ukbb_filename(entry):
+    """Pan-UKBB flat-file name: {trait_type}-{phenocode}-{sex}[-{coding}][-{modifier}].
+    Defaults suit the biochemistry biomarkers (inverse-rank-normalised). Check
+    other phenotypes against the `filename` column of the Pan-UKBB phenotype
+    manifest; a wrong name is a 404, not an empty file."""
+    parts = [entry.get("trait_type", "biomarkers"), str(entry["phenocode"]),
+             entry.get("sex", "both_sexes")]
+    parts += [str(entry[k]) for k in ("coding", "modifier") if entry.get(k)]
+    if "modifier" not in entry and parts[0] == "biomarkers":
+        parts.append("irnt")
+    return "-".join(parts) + ".tsv.bgz"
+
+
 def pan_ukbb_url(wc):
-    entry = config["sumstats"][wc.trait]
-    return f"{PAN_UKBB_BASE}/{entry['phenocode']}-{entry.get('sex', 'both_sexes')}.tsv.bgz"
+    return f"{PAN_UKBB_BASE}/{pan_ukbb_filename(config['sumstats'][wc.trait])}"
 
 
 def manifest_config():
@@ -184,7 +196,7 @@ rule all:
 rule download_snpinfo:
     output: SNPINFO
     params: url=SNPINFO_URL
-    shell: "mkdir -p $(dirname {output:q}) && wget -q -L -O {output:q} '{params.url}'"
+    shell: "mkdir -p $(dirname {output:q}) && wget -nv -L -O {output:q} '{params.url}'"
 
 
 # Wildcards are named `population`, never `pop`: Snakemake reserves `pop` (a
@@ -198,7 +210,7 @@ rule download_ldblk:
     shell:
         """
         mkdir -p {params.ref_dir}
-        wget -q -L -O {params.ref_dir}/ldblk_1kg_{params.lower}.tar.gz '{params.url}'
+        wget -nv -L -O {params.ref_dir}/ldblk_1kg_{params.lower}.tar.gz '{params.url}'
         tar -zxf {params.ref_dir}/ldblk_1kg_{params.lower}.tar.gz -C {params.ref_dir}
         rm {params.ref_dir}/ldblk_1kg_{params.lower}.tar.gz
         touch {output.sentinel:q}
@@ -217,7 +229,7 @@ if os.path.basename(BIM_PFX) == "hm3_proxy":
 rule download_chain:
     output: CHAIN
     params: url=CHAIN_URL
-    shell: "mkdir -p $(dirname {output:q}) && wget -q -L -O {output:q} '{params.url}'"
+    shell: "mkdir -p $(dirname {output:q}) && wget -nv -L -O {output:q} '{params.url}'"
 
 
 # HM3 SNPs with GRCh38 positions: used to match GRCh38 GWAS files by position
@@ -235,7 +247,7 @@ rule download_pan_ukbb:
     output: f"{RAW_DIR}/{{trait}}_pan_ukbb.tsv.bgz"
     wildcard_constraints: trait=_alt(PAN_TRAITS)
     params: url=pan_ukbb_url
-    shell: "mkdir -p $(dirname {output:q}) && wget -q -L -O {output:q} '{params.url}'"
+    shell: "mkdir -p $(dirname {output:q}) && wget -nv -L -O {output:q} '{params.url}'"
 
 
 rule format_pan_ukbb:

@@ -31,25 +31,24 @@ pan_ukbb:
 populations: ["EUR", "EAS", "AFR", "AMR"]
 
 # --- GWAS sample sizes per trait x population ---
-# Approximate values from the Pan-UKBB manifest.
-# The format_pan_ukbb.py script prints actual N per population; update here if
-# they differ materially from these defaults.
+# n_cases_<POP> from the Pan-UKBB phenotype manifest
+# (sumstats_release/phenotype_manifest.tsv.bgz), read 2026-11-13.
 n_gwas:
   LDL:
-    EUR: 343621
-    EAS:   3951
-    AFR:   6435
-    AMR:    980
+    EUR: 400223
+    EAS:   2568
+    AFR:   6200
+    AMR:    938
   HDL:
-    EUR: 343621
-    EAS:   3951
-    AFR:   6435
-    AMR:    980
+    EUR: 367021
+    EAS:   2342
+    AFR:   5754
+    AMR:    854
   TG:
-    EUR: 343621
-    EAS:   3951
-    AFR:   6435
-    AMR:    980
+    EUR: 400639
+    EAS:   2570
+    AFR:   6211
+    AMR:    937
 
 # --- Sample-overlap correction (recommended when traits share cohort members) ---
 # All three lipid traits are measured in the same UK Biobank participants, so

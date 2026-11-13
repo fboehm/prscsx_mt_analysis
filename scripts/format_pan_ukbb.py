@@ -6,6 +6,12 @@ statistics files in PRScsx_mt format:
 
     SNP   A1   A2   BETA   SE
 
+The flat files carry no rsID. Their key is chr, pos, ref, alt on GRCh37, with
+per-population columns in UPPERCASE (beta_EUR, se_EUR, low_confidence_EUR) and
+beta given for the alt allele. HM3 rsIDs are attached by matching chr:pos to
+snpinfo_mult_1kg_hm3 (also GRCh37) and requiring the allele pair to agree,
+directly or as its strand complement.
+
 Called by Snakemake rule `format_sumstats`.
 
 Inputs  (via snakemake object)
@@ -41,35 +47,47 @@ pops     = list(snakemake.params.pops)
 out_dir  = snakemake.params.out_dir
 trait    = snakemake.wildcards.trait
 
-# Pan-UKBB uses lowercase population codes in column names
-POP_MAP = {
-    "AFR": "afr", "AMR": "amr", "CSA": "csa",
-    "EAS": "eas", "EUR": "eur", "MID": "mid", "SAS": "sas",
-}
+# Pan-UKBB population codes as they appear in the column names (uppercase).
+# There is no SAS in Pan-UKBB; its South Asian group is CSA.
+POP_MAP = {p: p for p in ("AFR", "AMR", "CSA", "EAS", "EUR", "MID")}
+for _p in pops:
+    if _p not in POP_MAP:
+        sys.exit(f"[{trait}] ERROR: population {_p} is not a Pan-UKBB group "
+                 f"({', '.join(sorted(POP_MAP))})")
 
 ATGC = {"A", "T", "G", "C"}
+COMP = {"A": "T", "T": "A", "C": "G", "G": "C"}
 
 # ---------------------------------------------------------------------------
 # 1. Load HM3 SNP set for filtering
 # ---------------------------------------------------------------------------
 print(f"[{trait}] Loading HM3 SNP set from {snpinfo} ...")
-hm3_snps = set()
-with open(snpinfo) as fh:
-    next(fh)  # skip header
-    for line in fh:
-        hm3_snps.add(line.split()[1])   # column 1 = rsID
-print(f"[{trait}]   {len(hm3_snps):,} HM3 SNPs")
+hm3 = pd.read_csv(snpinfo, sep=r"\s+", usecols=["CHR", "SNP", "BP", "A1", "A2"],
+                  dtype={"CHR": str, "SNP": str, "BP": "int64", "A1": str, "A2": str})
+hm3 = hm3.rename(columns={"CHR": "chr", "BP": "pos", "SNP": "rsid",
+                          "A1": "hm3_a1", "A2": "hm3_a2"})
+hm3 = hm3.drop_duplicates(subset=["chr", "pos"], keep=False)
+print(f"[{trait}]   {len(hm3):,} HM3 SNPs")
 
 # ---------------------------------------------------------------------------
 # 2. Identify which columns to read
 # ---------------------------------------------------------------------------
-fixed_cols = ["rsid", "ref", "alt"]
+fixed_cols = ["chr", "pos", "ref", "alt"]
 pop_cols   = []
 for pop in pops:
     pk = POP_MAP[pop]
     pop_cols += [f"beta_{pk}", f"se_{pk}", f"low_confidence_{pk}"]
 
 usecols = fixed_cols + pop_cols
+
+# Fail on a column mismatch here, with the file's own header, rather than deep
+# inside pandas. Not every phenotype has every population.
+header = pd.read_csv(bgz_file, sep="\t", compression="gzip", nrows=0).columns
+missing = [c for c in usecols if c not in header]
+if missing:
+    sys.exit(f"[{trait}] ERROR: {bgz_file} lacks columns {missing}. "
+             f"Per-population columns present: "
+             f"{sorted(c for c in header if c.startswith('beta_'))}")
 
 # ---------------------------------------------------------------------------
 # 3. Read the compressed file
@@ -87,17 +105,23 @@ reader = pd.read_csv(
     compression="gzip",
     usecols=usecols,
     na_values=["NA", "nan", ""],
+    dtype={"chr": str, "pos": "int64", "ref": str, "alt": str},
     low_memory=False,
     chunksize=chunk_size,
 )
 
 for i, chunk in enumerate(reader):
-    # Filter to valid rsIDs
-    chunk = chunk[chunk["rsid"].str.startswith("rs", na=False)]
     # Filter to single-nucleotide ATGC variants (no indels)
     chunk = chunk[chunk["ref"].isin(ATGC) & chunk["alt"].isin(ATGC)]
-    # Filter to HM3 SNPs early to reduce memory
-    chunk = chunk[chunk["rsid"].isin(hm3_snps)]
+    # Attach HM3 rsIDs by GRCh37 position; this also drops non-HM3 variants
+    chunk = chunk.merge(hm3, on=["chr", "pos"], how="inner")
+    # The allele pair must match HM3's, as given or strand-flipped
+    same = ((chunk["ref"] == chunk["hm3_a1"]) & (chunk["alt"] == chunk["hm3_a2"])) | \
+           ((chunk["ref"] == chunk["hm3_a2"]) & (chunk["alt"] == chunk["hm3_a1"]))
+    rc, ac = chunk["ref"].map(COMP), chunk["alt"].map(COMP)
+    flip = ((rc == chunk["hm3_a1"]) & (ac == chunk["hm3_a2"])) | \
+           ((rc == chunk["hm3_a2"]) & (ac == chunk["hm3_a1"]))
+    chunk = chunk[same | flip].drop(columns=["hm3_a1", "hm3_a2"])
     if not chunk.empty:
         chunks.append(chunk)
     if (i + 1) % 10 == 0:
@@ -138,13 +162,14 @@ for pop in pops:
     lc_col = f"low_confidence_{pk}"
 
     # Treat missing low_confidence as True (exclude)
-    lc = df[lc_col].fillna(True)
+    # (the column may load as bool or as the strings "true"/"false")
+    lc = df[lc_col].map(lambda v: str(v).strip().lower() != "false")
 
     mask = (
         df[b_col].notna()  &
         df[se_col].notna() &
         (df[se_col] > 0)   &
-        (~lc.astype(bool))
+        (~lc)
     )
     pop_df = df.loc[mask, ["rsid", "alt", "ref", b_col, se_col]].copy()
     pop_df.columns = ["SNP", "A1", "A2", "BETA", "SE"]
