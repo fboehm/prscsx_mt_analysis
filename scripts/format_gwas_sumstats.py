@@ -24,6 +24,11 @@ the merged `sumstats.<trait>` entry of the config):
                | {"cases": .., "controls": ..} -> 4 / (1/cases + 1/controls)
     info_min   optional INFO filter (needs cols.info)
     maf_min    optional MAF filter (needs cols.eaf)
+    ldsc_intercept  optional LD score regression intercept (> 1) of this GWAS.
+               SE is multiplied by sqrt(intercept), i.e. chi2 is divided by it,
+               to remove confounding inflation (stratification, relatedness)
+               while leaving polygenic signal in place. Use the intercept, not
+               lambda_GC: lambda_GC also absorbs real polygenic signal.
 
 SNPs are kept when their alleles match the HM3 reference alleles, directly or
 after a strand flip (PRS-CSx handles orientation itself). Multi-character
@@ -172,6 +177,17 @@ def main():
     n = resolve_n(spec, n_snp)
     if len(df) == 0:
         fail("%s no SNPs left after matching to HM3 -- check cols/match_by/build" % tag)
+
+    intercept = spec.get("ldsc_intercept")
+    if intercept is not None:
+        intercept = float(intercept)
+        if not 1.0 <= intercept < 2.0:
+            fail("%s ldsc_intercept = %g is outside [1, 2) -- it must be the LD score "
+                 "regression intercept of this GWAS" % (tag, intercept))
+        raw_mean_chi2 = float(((df["beta"] / df["se"]) ** 2).mean())
+        df = df.assign(se=df["se"] * np.sqrt(intercept))
+        print("%s ldsc_intercept %.4f applied: SE x %.4f, mean chi2 %.3f -> %.3f"
+              % (tag, intercept, np.sqrt(intercept), raw_mean_chi2, raw_mean_chi2 / intercept))
 
     out = df[["SNP", "a1", "a2", "beta", "se"]]
     out.columns = ["SNP", "A1", "A2", "BETA", "SE"]

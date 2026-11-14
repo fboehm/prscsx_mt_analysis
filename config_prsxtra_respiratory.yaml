@@ -53,6 +53,8 @@ traits: ["asthma", "copd", "lung_cancer", "fev1", "fvc", "fev1_fvc", "smoking", 
 #   build     37 | 38           (only used with match_by: position)
 #   cols      column names in the raw file. Effect: `beta`, `or` (converted to
 #             log OR), `log_or`, or `z` alone. Precision: `se` or `p`.
+#   ldsc_intercept  optional; LD score regression intercept of a GWAS with
+#             confounding inflation. SE is multiplied by sqrt(intercept).
 sumstats:
   # GBMI ancestry-specific meta-analyses (GRCh38; effect allele = ALT)
   asthma:
@@ -111,7 +113,8 @@ sumstats:
       EUR: {path: data/sumstats/raw/respiratory/fev1_EUR.txt.gz, cols: {beta: null, se: null, z: Zscore}}
       EAS: {path: data/sumstats/raw/respiratory/fev1_EAS.txt.gz, match_by: position, build: 37, n: 129680,
              cols: {snp: null, chr: chromosome, pos: base_pair_location, se: standard_error, n: null}}
-      AFR: {path: data/sumstats/raw/respiratory/fev1_AFR.txt.gz}
+      # LDSC intercept from MTAG's Sigma (work_AFR/mtag_sigma_hat.txt, run of 2026-11-14)
+      AFR: {path: data/sumstats/raw/respiratory/fev1_AFR.txt.gz, ldsc_intercept: 1.1767}
       AMR: {path: data/sumstats/raw/respiratory/fev1_AMR.txt.gz}
   # FVC
   # EAS: He et al. 2026 (GCST90705068; GRCh37, no rsIDs, N = 129,680)
@@ -126,7 +129,8 @@ sumstats:
       EUR: {path: data/sumstats/raw/respiratory/fvc_EUR.txt.gz, cols: {beta: null, se: null, z: Zscore}}
       EAS: {path: data/sumstats/raw/respiratory/fvc_EAS.txt.gz, match_by: position, build: 37, n: 129680,
              cols: {snp: null, chr: chromosome, pos: base_pair_location, se: standard_error, n: null}}
-      AFR: {path: data/sumstats/raw/respiratory/fvc_AFR.txt.gz}
+      # LDSC intercept from MTAG's Sigma (work_AFR/mtag_sigma_hat.txt, run of 2026-11-14)
+      AFR: {path: data/sumstats/raw/respiratory/fvc_AFR.txt.gz, ldsc_intercept: 1.1868}
       AMR: {path: data/sumstats/raw/respiratory/fvc_AMR.txt.gz}
   # FEV1/FVC
   # EAS: He et al. 2026 (GCST90705069; GRCh37, no rsIDs, N = 129,680)
