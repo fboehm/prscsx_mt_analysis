@@ -54,14 +54,20 @@ SCHEMA_VERSION = 2   # 1 = pre-2026-10 analytic schema (corr + time_s, no
                      # 2 = realistic schema + these provenance columns
 
 
-def _git_sha(path):
+def _git_sha(path, env_var=None):
     """Short HEAD of the checkout at `path`, suffixed '-dirty' if it has edits.
 
     A dirty tree makes a bare SHA a lie, which matters here: the PRScsx psi
     overflow guard lived as an uncommitted edit for half a day before it was
     committed, and a result stamped with the clean SHA would have misreported
     which sampler ran.
+
+    Cluster compute nodes have no git, so there this returned 'unknown' for
+    every task. launch_sweep.sh verifies both checkouts on the login node and
+    exports the SHAs; `env_var` names that export, and it wins when set.
     """
+    if env_var and os.environ.get(env_var):
+        return os.environ[env_var][:7]
     try:
         rev = subprocess.run(['git', '-C', path, 'rev-parse', '--short', 'HEAD'],
                              capture_output=True, text=True, timeout=30)
@@ -77,8 +83,8 @@ def _git_sha(path):
         return 'unknown'
 
 
-PRSCSX_SHA    = _git_sha(_prscsx_dir)
-PRSCSX_MT_SHA = _git_sha(_mt_dir)
+PRSCSX_SHA    = _git_sha(_prscsx_dir, 'SWEEP_PRSCSX_SHA')
+PRSCSX_MT_SHA = _git_sha(_mt_dir, 'SWEEP_PRSCSX_MT_SHA')
 
 sys.path.insert(0, _repo_root)   # simulate_mt.py lives in this repo
 sys.path.insert(0, _mt_dir)      # mcmc_gtb_mt.py, parse_genet_mt.py (method)

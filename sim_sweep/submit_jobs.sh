@@ -95,8 +95,10 @@ echo "a:    a_grid=${A_GRID} tune_frac=${TUNE_FRAC}"
 MODE="${MODE:-sweep}"
 case "${MODE}" in
     sweep)
-        JOB_LIST="${SCRIPT_DIR}/job_list.txt"
-        RESULTS_DIR="${SCRIPT_DIR}/results" ;;
+        # Overridable so a scenario group can run into its own results dir
+        # (launch_sweep.sh sets both).
+        JOB_LIST="${JOB_LIST:-${SCRIPT_DIR}/job_list.txt}"
+        RESULTS_DIR="${RESULTS_DIR:-${SCRIPT_DIR}/results}" ;;
     prsxtra)
         JOB_LIST="${SCRIPT_DIR}/job_list_prsxtra.txt"
         RESULTS_DIR="${SCRIPT_DIR}/results_prsxtra" ;;
