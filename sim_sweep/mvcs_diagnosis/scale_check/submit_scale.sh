@@ -2,8 +2,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # SLURM array: the mvcs scale check, one task per line of jobs.txt (42).
 #
-# From this directory:
-#   sbatch --array=1-$(wc -l < jobs.txt) submit_scale.sh
+# From this directory, on the login node (not plain sbatch; see launch.sh):
+#   ./launch.sh -p quickq
 # Afterwards:
 #   python summarize.py
 #
@@ -24,13 +24,22 @@ cd "$HERE"
 export SWEEP_DIR="$(cd ../.. && pwd)"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 
-# The check is only meaningful on the fixed mvcs sampler. run_one_replicate.py
-# finds PRScsx_mt at $PRSCSX_MT_DIR or as a sibling of the analysis repo.
+# The check is only meaningful on the fixed mvcs sampler. Compute nodes have no
+# git, so launch.sh verifies a clean checkout on the login node and passes the
+# SHA in; here we re-read HEAD from .git's files to catch a checkout that moved
+# after submission. (run_one_replicate.py's own sha stamp needs git, so it will
+# say 'unknown' here; run_scale.py records SCALE_MT_SHA in each clamp JSON instead.)
+: "${SCALE_MT_SHA:?submit with ./launch.sh, not sbatch directly}"
 MT_DIR="${PRSCSX_MT_DIR:-$(cd "$SWEEP_DIR/../.." && pwd)/PRScsx_mt}"
-want=3fb1b99
-have=$(git -C "$MT_DIR" rev-parse --short=7 HEAD)
-if [ "$have" != "$want" ] || [ -n "$(git -C "$MT_DIR" status --porcelain --untracked-files=no)" ]; then
-    echo "PRScsx_mt at $MT_DIR is $have (dirty: $(git -C "$MT_DIR" status --porcelain --untracked-files=no | wc -l)); need clean $want" >&2
+head_ref=$(cat "$MT_DIR/.git/HEAD")
+if [[ "$head_ref" == ref:* ]]; then
+    ref=${head_ref#ref: }
+    have=$(cat "$MT_DIR/.git/$ref" 2>/dev/null || awk -v r="$ref" '$2==r{print $1}' "$MT_DIR/.git/packed-refs")
+else
+    have=$head_ref
+fi
+if [ "$have" != "$SCALE_MT_SHA" ]; then
+    echo "PRScsx_mt HEAD is now ${have:0:7}; launched against ${SCALE_MT_SHA:0:7}" >&2
     exit 2
 fi
 

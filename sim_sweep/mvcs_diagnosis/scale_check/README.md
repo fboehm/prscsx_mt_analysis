@@ -23,9 +23,12 @@ the deficit is the model.
 - `n_snp 2000`, `n_iter 5000`, `n_burnin 2000`, `n_ref 500`, `n_test 10000`, `a = 1`.
   Sampler fork `PRScsx_mt` at `3fb1b99` (branch `fix/mvcs-exact-conditionals`), `PRScsx`
   at `4db1f54`, both clean.
-- Runs on the cluster: `sbatch --array=1-$(wc -l < jobs.txt) submit_scale.sh` from this
-  directory, then `python summarize.py`. The script exits 2 unless `PRScsx_mt` is a clean
-  checkout of `3fb1b99`. `run_all.sh` is the local fallback (5 at a time: 11 at a time hit
+- Runs on the cluster: `./launch.sh -p quickq` from this directory on the login node, then
+  `python summarize.py`. `launch.sh` refuses to submit unless `PRScsx_mt` is a clean
+  checkout of `3fb1b99`. Compute nodes have no `git`, so each task re-checks HEAD by reading
+  `.git` directly, and the verified SHA goes into every clamp JSON. The runner's own
+  `prscsx_mt_sha` column calls `git` and so reads `unknown` on compute nodes — and
+  presumably did for earlier cluster sweeps too. `run_all.sh` is the local fallback (5 at a time: 11 at a time hit
   the OOM killer on the 7 GB WSL VM; each replicate peaks around 0.9 GB).
 
 ## Files

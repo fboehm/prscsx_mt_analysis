@@ -63,7 +63,8 @@ def tag(fn, method):
             cur['bits'] = cur['r'] = None
             p = max(len(b) // n_iter, 1)
             tb = _tail(b, p)
-            rec = {'method': method, 'cross_trait': kw.get('cross_trait'),
+            rec = {'prscsx_mt_sha': os.environ.get('SCALE_MT_SHA', r.PRSCSX_MT_SHA),
+                   'method': method, 'cross_trait': kw.get('cross_trait'),
                    'phi': kw.get('phi'), 'n_draws': len(b), 'p_tot': p,
                    'clamp_all': sum(b) / max(len(b), 1),
                    'clamp_post': sum(tb) / max(len(tb), 1)}
