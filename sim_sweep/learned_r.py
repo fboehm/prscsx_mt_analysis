@@ -13,6 +13,10 @@ script does two jobs. Standard library only, so it runs with any python3.
             reports r at the `a` that the held-out tuning picked:
                 python3 learned_r.py summarize summary_h0.1/learned_r.csv \\
                         summary_h0.1/all_results.csv
+  realised  per replicate, set learned r beside the correlation actually realised
+            in the simulated true effects, the GWAS betas, and the posterior
+            means of PRS-CSx, mult and mvcs (fixed-phi arm):
+                python3 learned_r.py realised results_h0.1 summary_h0.1/realised_r.csv
 
 Truth: the simulator draws shared effects with within-population cross-trait
 correlation rg (simulate_realistic._draw_true_effects). Every mvcs cell is at
@@ -169,10 +173,140 @@ def summarize(learned_csv, results_csv=None):
                     if cell[(pop, rg, a)] else '      -  ' for a in a_vals))
 
 
+def _pearson(x, y):
+    n = len(x)
+    mx, my = sum(x) / n, sum(y) / n
+    sxy = sum((a - mx) * (b - my) for a, b in zip(x, y))
+    sxx = sum((a - mx) ** 2 for a in x)
+    syy = sum((b - my) ** 2 for b in y)
+    return sxy / math.sqrt(sxx * syy) if sxx > 0 and syy > 0 else float('nan')
+
+
+def _read_col(path, col):
+    """{SNP: float} from a tab/space-delimited file with a header naming `col`."""
+    out = {}
+    with open(path) as fh:
+        head = fh.readline().split()
+        k = head.index(col)
+        for line in fh:
+            f = line.split()
+            out[f[0]] = float(f[k])
+    return out
+
+
+def _read_pst(path):
+    """{SNP: beta} from a PRS-CSx posterior file (chrom snp bp a1 a2 beta, no header)."""
+    out = {}
+    with open(path) as fh:
+        for line in fh:
+            f = line.split()
+            out[f[1]] = float(f[5])
+    return out
+
+
+def _one(pattern):
+    m = glob.glob(pattern)
+    return m[0] if len(m) == 1 else None
+
+
+def _corr_maps(a, b, keep=None):
+    snps = [s for s in a if s in b and (keep is None or s in keep)]
+    return _pearson([a[s] for s in snps], [b[s] for s in snps]) if len(snps) > 2 else float('nan')
+
+
+def realised(results_dir, out_csv):
+    """Per mvcs replicate and population, the cross-trait correlation of:
+        true_causal  the simulated true effects, over the causal SNPs (the target)
+        true_all     the same over all SNPs
+        gwas         the two traits' marginal GWAS betas (all SNPs, no model)
+        prscsx_pst   single-trait PRS-CSx posterior means (no cross-trait coupling)
+        mult_pst     PRS-CSx-MT mult posterior means, from the matching rgfrac cell
+        mvcs_pst     PRS-CSx-MT mvcs posterior means
+        learned_r    mvcs's posterior-mean R
+    all from the fixed-phi arm (a = 1, one fit per replicate)."""
+    rows = []
+    for rep in sorted(glob.glob(os.path.join(results_dir, 'mvcs_*', 'seed_*'))):
+        scenario = os.path.basename(os.path.dirname(rep))
+        m = _CELL.search(scenario)
+        if not m:
+            continue
+        seed = int(os.path.basename(rep).split('_')[1])
+        mult_rep = os.path.join(results_dir, scenario.replace('mvcs_', 'rgfrac_', 1),
+                                os.path.basename(rep))
+        data = os.path.join(rep, 'data')
+        corr_path = _one(os.path.join(rep, 'fixed', 'prscsx_mt', _CORR))
+        R = _read_corr(corr_path) if corr_path else {}
+        for pop in sorted(R):
+            row = dict(scenario=scenario, rg=float(m.group(1)), seed=seed, pop=pop,
+                       learned_r=R[pop][0][1])
+            t = [_read_col(os.path.join(data, 'true_effects_%s_trait%d.txt' % (pop, tt)),
+                           'BETA_TRUE') for tt in (0, 1)]
+            causal = {s for s in t[0] if t[0][s] != 0.0 or t[1][s] != 0.0}
+            row['n_causal'] = len(causal)
+            row['true_causal'] = _corr_maps(t[0], t[1], causal)
+            row['true_all'] = _corr_maps(t[0], t[1])
+            g = [_read_col(os.path.join(data, 'sst_%s_trait%d.txt' % (pop, tt)), 'BETA')
+                 for tt in (0, 1)]
+            row['gwas'] = _corr_maps(g[0], g[1])
+            for label, pats in (
+                    ('prscsx_pst', [os.path.join(rep, 'fixed', 'prscsx_t%d' % tt,
+                                                 'prs_t%d_%s_pst_eff_*_chr1.txt' % (tt, pop))
+                                    for tt in (0, 1)]),
+                    ('mult_pst', [os.path.join(mult_rep, 'fixed', 'prscsx_mt',
+                                               'prs_mt_%s_trait%d_pst_eff_*_chr1.txt' % (pop, tt))
+                                  for tt in (0, 1)]),
+                    ('mvcs_pst', [os.path.join(rep, 'fixed', 'prscsx_mt',
+                                               'prs_mt_%s_trait%d_pst_eff_*_chr1.txt' % (pop, tt))
+                                  for tt in (0, 1)])):
+                paths = [_one(p) for p in pats]
+                row[label] = (_corr_maps(_read_pst(paths[0]), _read_pst(paths[1]))
+                              if all(paths) else float('nan'))
+            rows.append(row)
+    if not rows:
+        sys.exit('no mvcs_*/seed_*/fixed/prscsx_mt/%s under %s' % (_CORR, results_dir))
+    cols = ['scenario', 'rg', 'seed', 'pop', 'n_causal', 'true_causal', 'true_all',
+            'gwas', 'prscsx_pst', 'mult_pst', 'mvcs_pst', 'learned_r']
+    os.makedirs(os.path.dirname(out_csv) or '.', exist_ok=True)
+    with open(out_csv, 'w', newline='') as fh:
+        w = csv.DictWriter(fh, fieldnames=cols)
+        w.writeheader()
+        w.writerows(rows)
+    print('wrote %d (replicate, pop) rows -> %s' % (len(rows), out_csv))
+
+    print('\n=== cross-trait correlation, fixed-phi arm; mean over seeds (sem) ===')
+    stats_cols = cols[5:]
+    print('  pop    rg   ' + ''.join('%-16s' % c for c in stats_cols))
+    for pop in sorted({r['pop'] for r in rows}):
+        for rg in sorted({r['rg'] for r in rows}):
+            cell = [r for r in rows if r['pop'] == pop and r['rg'] == rg]
+            out = []
+            for c in stats_cols:
+                v = [r[c] for r in cell if r[c] == r[c]]
+                if v:
+                    mu, se, _ = _mean_sem(v)
+                    out.append('%+.3f (%.3f)  ' % (mu, se))
+                else:
+                    out.append('   -            ')
+            print('  %-4s %5.1f  %s n=%d' % (pop, rg, ''.join(out), len(cell)))
+    print('\n=== learned_r minus each reference, mean over seeds (sem) ===')
+    print('  pop    rg   vs true_causal     vs mvcs_pst')
+    for pop in sorted({r['pop'] for r in rows}):
+        for rg in sorted({r['rg'] for r in rows}):
+            cell = [r for r in rows if r['pop'] == pop and r['rg'] == rg]
+            out = []
+            for ref in ('true_causal', 'mvcs_pst'):
+                v = [r['learned_r'] - r[ref] for r in cell if r[ref] == r[ref]]
+                mu, se, _ = _mean_sem(v) if v else (float('nan'),) * 3
+                out.append('%+.3f (%.3f)    ' % (mu, se))
+            print('  %-4s %5.1f   %s' % (pop, rg, ''.join(out)))
+
+
 if __name__ == '__main__':
     if len(sys.argv) >= 4 and sys.argv[1] == 'extract':
         extract(sys.argv[2], sys.argv[3])
     elif len(sys.argv) in (3, 4) and sys.argv[1] == 'summarize':
         summarize(sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else None)
+    elif len(sys.argv) == 4 and sys.argv[1] == 'realised':
+        realised(sys.argv[2], sys.argv[3])
     else:
         sys.exit(__doc__)
