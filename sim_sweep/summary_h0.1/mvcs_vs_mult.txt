@@ -1,0 +1,39 @@
+Read summary_h0.1/all_results.csv
+paired rows (rg x seed x pop x trait x phi): 1200
+max |PRS-CSx in mvcs cell - PRS-CSx in mult cell| = 0  (0 = identical data)
+
+=== auto-phi: mvcs - mult, held-out corr_pred, f = 1 (unit = seed, traits averaged) ===
+  pop    rg      mean       sem         p    n  favours
+  EAS    0.0  -0.00412  0.00062   2.9e-07   30  mult
+  EAS    0.2  -0.00351  0.00070   2.7e-05   30  mult
+  EAS    0.4  -0.00137  0.00094      0.16   30  mult
+  EAS    0.6  +0.00207  0.00099     0.045   30  mvcs
+  EAS    0.8  +0.00725  0.00115   7.2e-07   30  mvcs
+  EAS    all  +0.00006  0.00063      0.92   30  <- pooled over rg
+  EAS  slope +0.01416 per unit rg  sem 0.00148  p 1.7e-10  zero crossing rg ~ 0.40
+  EUR    0.0  +0.00406  0.00038   1.4e-11   30  mvcs
+  EUR    0.2  +0.00274  0.00039   1.2e-07   30  mvcs
+  EUR    0.4  +0.00137  0.00060     0.029   30  mvcs
+  EUR    0.6  -0.00027  0.00071      0.71   30  mult
+  EUR    0.8  +0.00103  0.00080       0.2   30  mvcs
+  EUR    all  +0.00179  0.00042    0.0002   30  <- pooled over rg
+  EUR  slope -0.00453 per unit rg  sem 0.00108  p 0.00024  zero crossing rg ~ 0.79
+  rows where mvcs > mult: 352 / 600
+
+=== fixed-phi: mvcs - mult, held-out corr_pred, f = 1 (unit = seed, traits averaged) ===
+  pop    rg      mean       sem         p    n  favours
+  EAS    0.0  -0.00773  0.00052   4.5e-15   30  mult
+  EAS    0.2  -0.00687  0.00057   8.8e-13   30  mult
+  EAS    0.4  -0.00508  0.00066     2e-08   30  mult
+  EAS    0.6  -0.00133  0.00081      0.11   30  mult
+  EAS    0.8  +0.00372  0.00148     0.018   30  mvcs
+  EAS    all  -0.00346  0.00067   1.5e-05   30  <- pooled over rg
+  EAS  slope +0.01422 per unit rg  sem 0.00157  p 5.9e-10  zero crossing rg ~ 0.64
+  EUR    0.0  +0.00328  0.00027   4.5e-13   30  mvcs
+  EUR    0.2  +0.00236  0.00038   8.7e-07   30  mvcs
+  EUR    0.4  +0.00055  0.00052       0.3   30  mvcs
+  EUR    0.6  -0.00076  0.00065      0.25   30  mult
+  EUR    0.8  -0.00044  0.00067      0.52   30  mult
+  EUR    all  +0.00100  0.00041     0.022   30  <- pooled over rg
+  EUR  slope -0.00527 per unit rg  sem 0.00083  p 5.6e-07  zero crossing rg ~ 0.59
+  rows where mvcs > mult: 270 / 600
