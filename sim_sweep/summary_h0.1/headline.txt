@@ -1,0 +1,97 @@
+Read 6240 paired deltas from summary_h0.1/deltas_pred.csv
+
+=== auto-phi, held-out-selected `a`  (the defensible headline) ===  (delta = MT - PRS-CSx on held-out corr_pred)
+  rows=3120   a_tuned=TRUE on 3120 (100%)
+  unit=seed        n=30    mean=+0.00078  sem=0.00026  95%CI=[+0.00027, +0.00129]  t=+3.02  p=0.00522
+  unit=scen x seed n=780   mean=+0.00078  sem=0.00018  95%CI=[+0.00043, +0.00113]  t=+4.34  p=1.64e-05
+  unit=row (NOT)   n=3120  mean=+0.00078  sem=0.00013  95%CI=[+0.00054, +0.00103]  t=+6.24  p=4.89e-10
+  sign test over 52 (scenario x pop) means: 29 favor MT, 23 favor PRS-CSx, p=0.488
+
+=== fixed-phi a=1  (both methods at library defaults) ===  (delta = MT - PRS-CSx on held-out corr_pred)
+  rows=3120   a_tuned=TRUE on 0 (0%)
+  unit=seed        n=30    mean=+0.00398  sem=0.00024  95%CI=[+0.00352, +0.00445]  t=+16.77  p=1.82e-16
+  unit=scen x seed n=780   mean=+0.00398  sem=0.00015  95%CI=[+0.00369, +0.00428]  t=+26.24  p=3.24e-109
+  unit=row (NOT)   n=3120  mean=+0.00398  sem=0.00012  95%CI=[+0.00374, +0.00423]  t=+32.22  p=6.91e-197
+  sign test over 52 (scenario x pop) means: 40 favor MT, 12 favor PRS-CSx, p=0.000128
+
+--- mean delta by population, auto-phi ---
+  pop                            mean  sem(seed)  n_rows      p
+  EUR                        -0.00026    0.00024    1560  0.292
+  EAS                        +0.00182    0.00044    1560 0.000239
+
+--- mean delta by population, fixed-phi ---
+  pop                            mean  sem(seed)  n_rows      p
+  EUR                        +0.00002    0.00026    1560  0.925
+  EAS                        +0.00794    0.00038    1560 6.21e-19
+
+==== auto-phi ====
+
+--- slope of delta on rg, group=cross_trait_mvcs_h0.1 ---
+  (negative = MT helps LESS as traits grow more correlated)
+  pop    frac   slope/unit        sem          p d(rg 0->0.8)
+  EAS    1.00     +0.01704    0.00184   3.57e-10     +0.01363
+  EUR    1.00     -0.00238    0.00139     0.0974     -0.00191
+  EAS     all     +0.01704    0.00184   3.57e-10     +0.01363   <- pooled, frac>0, n=30 seeds
+  EUR     all     -0.00238    0.00139     0.0974     -0.00191   <- pooled, frac>0, n=30 seeds
+
+--- slope of delta on rg, group=rg_frac_grid_h0.1 ---
+  (negative = MT helps LESS as traits grow more correlated)
+  pop    frac   slope/unit        sem          p d(rg 0->0.8)
+  EAS    0.25     -0.00070    0.00087      0.423     -0.00056
+  EAS    0.50     +0.00083    0.00095      0.392     +0.00066
+  EAS    0.75     +0.00167    0.00103      0.115     +0.00134
+  EAS    1.00     +0.00288    0.00096     0.0055     +0.00230
+  EUR    0.25     +0.00133    0.00041    0.00277     +0.00107
+  EUR    0.50     +0.00144    0.00042    0.00194     +0.00115
+  EUR    0.75     +0.00073    0.00064      0.266     +0.00058
+  EUR    1.00     +0.00215    0.00062    0.00175     +0.00172
+  EAS     all     +0.00117    0.00050     0.0268     +0.00094   <- pooled, frac>0, n=30 seeds
+  EUR     all     +0.00141    0.00030   4.66e-05     +0.00113   <- pooled, frac>0, n=30 seeds
+
+==== fixed-phi ====
+
+--- slope of delta on rg, group=cross_trait_mvcs_h0.1 ---
+  (negative = MT helps LESS as traits grow more correlated)
+  pop    frac   slope/unit        sem          p d(rg 0->0.8)
+  EAS    1.00     +0.01683    0.00175    1.6e-10     +0.01346
+  EUR    1.00     -0.00283    0.00113     0.0187     -0.00226
+  EAS     all     +0.01683    0.00175    1.6e-10     +0.01346   <- pooled, frac>0, n=30 seeds
+  EUR     all     -0.00283    0.00113     0.0187     -0.00226   <- pooled, frac>0, n=30 seeds
+
+--- slope of delta on rg, group=rg_frac_grid_h0.1 ---
+  (negative = MT helps LESS as traits grow more correlated)
+  pop    frac   slope/unit        sem          p d(rg 0->0.8)
+  EAS    0.25     +0.00005    0.00053      0.918     +0.00004
+  EAS    0.50     +0.00120    0.00047     0.0173     +0.00096
+  EAS    0.75     +0.00187    0.00068     0.0103     +0.00150
+  EAS    1.00     +0.00261    0.00066   0.000439     +0.00209
+  EUR    0.25     +0.00054    0.00022     0.0206     +0.00043
+  EUR    0.50     +0.00128    0.00031   0.000301     +0.00102
+  EUR    0.75     +0.00100    0.00044     0.0291     +0.00080
+  EUR    1.00     +0.00245    0.00051   4.38e-05     +0.00196
+  EAS     all     +0.00143    0.00035   0.000335     +0.00115   <- pooled, frac>0, n=30 seeds
+  EUR     all     +0.00132    0.00020   3.26e-07     +0.00105   <- pooled, frac>0, n=30 seeds
+
+--- mean delta by scenario group, auto-phi ---
+  group                          mean  sem(seed)  n_rows      p
+  rg_frac_grid_h0.1          -0.00032    0.00024    2520  0.183
+  cross_trait_mvcs_h0.1      +0.00541    0.00056     600 1.27e-10
+
+--- mean delta by scenario, auto-phi (5 best / 5 worst) ---
+  scenario                       mean  sem(seed)  n_rows      p
+  rgfrac_h0.1_rg0.0_f0.00    -0.00834    0.00046     120 2.78e-17
+  rgfrac_h0.1_rg0.0_f0.25    -0.00460    0.00043     120 1.22e-11
+  rgfrac_h0.1_rg0.4_f0.25    -0.00455    0.00043     120 1.89e-11
+  rgfrac_h0.1_rg0.6_f0.25    -0.00448    0.00043     120 2.7e-11
+  rgfrac_h0.1_rg0.2_f0.25    -0.00447    0.00038     120 1.69e-12
+  ... 16 omitted ...      
+  rgfrac_h0.1_rg0.4_f1.00    +0.00402    0.00044     120 4.55e-10
+  rgfrac_h0.1_rg0.6_f1.00    +0.00490    0.00045     120 1.06e-11
+  mvcs_h0.1_rg0.6_f1.00      +0.00580    0.00085     120 1.89e-07
+  rgfrac_h0.1_rg0.8_f1.00    +0.00586    0.00047     120 4.42e-13
+  mvcs_h0.1_rg0.8_f1.00      +0.01001    0.00088     120 2.9e-12
+
+--- selected shape `a` (auto-phi arm) ---
+  PRS-CSx     1.0:13%  0.25:36%  0.05:34%  0.01:10%  0.005:7%
+  PRS-CSx-MT  1.0:21%  0.25:26%  0.05:21%  0.01:17%  0.005:15%
+  same `a` chosen in both arms: 969/3120 (31%)
