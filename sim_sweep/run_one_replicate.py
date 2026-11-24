@@ -466,6 +466,16 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
     group     = scenario.get('group', 'ungrouped')
     frac      = scenario.get('frac_shared_causal', 1.0)
     cross_trait = scenario.get('cross_trait', 'mult')
+    # Diagnostic: 'true' gives every method the true LD instead of the finite,
+    # shrunk reference panel (see simulate_realistic's true_ld_ref). Same data
+    # otherwise, so a 'true' scenario pairs seed-for-seed with its 'sample' twin.
+    ld_ref = scenario.get('ld_ref', 'sample')
+    if ld_ref not in ('sample', 'true'):
+        raise ValueError('scenario %r: ld_ref=%r must be "sample" or "true"'
+                         % (name, ld_ref))
+    if ld_ref == 'true' and sim_mode != 'realistic':
+        raise ValueError('scenario %r: ld_ref="true" needs sim_mode realistic; '
+                         'the analytic simulator already uses the true LD' % name)
     if cross_trait not in _CROSS_TRAIT_MODES:
         raise ValueError(
             'scenario %r: cross_trait=%r is not one of %s. Failing here rather '
@@ -493,6 +503,7 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
             rg=rg, frac_shared_causal=frac, rho_pop=rho_pop, h2=h2,
             rho_pheno=rho_pheno, n_overlap=n_overlap,
             n_ref=n_ref, n_test=n_test, ld_hetero=ld_hetero,
+            true_ld_ref=(ld_ref == 'true'),
             pop=pop_labels, out_dir=data_dir, chrom=1, seed=_derive_seed(seed, 0))
     else:
         simulate_mt.simulate_mt(

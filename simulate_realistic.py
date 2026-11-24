@@ -223,7 +223,7 @@ def simulate_realistic(
     rg=0.5, frac_shared_causal=1.0, rho_pop=0.8, pi_causal=None,
     h2=None, rho_pheno=0.0, n_overlap=None,
     n_ref=500, n_test=5000, ld_hetero=0.15, ld_ridge=0.1,
-    pop=None, out_dir=None, chrom=1, seed=42,
+    true_ld_ref=False, pop=None, out_dir=None, chrom=1, seed=42,
 ):
     """Simulate a realistic multi-trait / multi-ancestry replicate.
 
@@ -244,6 +244,14 @@ def simulate_realistic(
         Shrinkage of the reference sample-LD toward the identity,
         R_ref = (1-ld_ridge) * S + ld_ridge * I. Keeps blocks positive definite
         for the sampler and mimics standard LD shrinkage.
+    true_ld_ref : bool
+        Diagnostic. If True, hand the sampler each population's *true* LD
+        blocks instead of the shrunk reference sample-LD, removing reference
+        mismatch entirely. The reference cohort is still drawn (and only used
+        for ``ld_mismatch``) so that every later draw from the genotype stream
+        -- the next population's GWAS cohorts and every test cohort -- is
+        bit-identical to the default run. ``ld_mismatch`` then reports what the
+        sample panel's error would have been, not zero.
 
     ``rho_pheno`` / ``n_overlap`` are accepted for signature compatibility but
     NOT modelled (independent GWAS cohorts); see the module docstring.
@@ -340,7 +348,8 @@ def simulate_realistic(
             err_num += np.sum((S - true_blk) ** 2)
             err_den += np.sum(true_blk ** 2)
             sh += bsize
-        ref_blocks[pp] = blks
+        ref_blocks[pp] = ([b.copy() for b in blocks_pop[pp]] if true_ld_ref
+                          else blks)
         ld_mismatch[pp] = float(np.sqrt(err_num / err_den)) if err_den > 0 else 0.0
         del Xr
 
