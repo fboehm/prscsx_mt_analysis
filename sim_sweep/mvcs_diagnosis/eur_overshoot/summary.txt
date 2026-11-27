@@ -1,0 +1,39 @@
+PRScsx_mt SHA(s): 3fb1b999ebbaaace78b1c4d5e687a21dbe64ce6e
+seeds done: sample/auto 10, sample/fixed 10, true/auto 10, true/fixed 10
+
+=== learned r (true rg 0.8), sampler posterior mean: mean (sem) over seeds ===
+fixed EUR  sample +0.9714 (0.0163) n=10   true +0.9642 (0.0183) n=10   true-sample -0.0073 (0.0040) n=10
+fixed EAS  sample +0.7728 (0.0349) n=10   true +0.8129 (0.0333) n=10   true-sample +0.0401 (0.0193) n=10
+auto  EUR  sample +0.9626 (0.0152) n=10   true +0.9623 (0.0154) n=10   true-sample -0.0002 (0.0046) n=10
+auto  EAS  sample +0.7914 (0.0313) n=10   true +0.8439 (0.0316) n=10   true-sample +0.0525 (0.0198) n=10
+(trace mean vs sampler file: max |diff| 0.0000)
+
+=== sigma (true value 0.90) and share of iterations with resid < 0 ===
+fixed sample EUR_t0  sigma +0.9295 (0.0011) n=10   resid +0.9128 (0.0012) n=10   resid<0 share +0.0000 (0.0000) n=10
+fixed sample EUR_t1  sigma +0.9277 (0.0010) n=10   resid +0.9104 (0.0015) n=10   resid<0 share +0.0000 (0.0000) n=10
+fixed sample EAS_t0  sigma +0.8810 (0.0025) n=10   resid +0.8685 (0.0037) n=10   resid<0 share +0.0000 (0.0000) n=10
+fixed sample EAS_t1  sigma +0.8834 (0.0020) n=10   resid +0.8739 (0.0030) n=10   resid<0 share +0.0000 (0.0000) n=10
+fixed true   EUR_t0  sigma +0.9329 (0.0009) n=10   resid +0.9175 (0.0010) n=10   resid<0 share +0.0000 (0.0000) n=10
+fixed true   EUR_t1  sigma +0.9324 (0.0008) n=10   resid +0.9160 (0.0013) n=10   resid<0 share +0.0000 (0.0000) n=10
+fixed true   EAS_t0  sigma +0.8863 (0.0022) n=10   resid +0.8754 (0.0033) n=10   resid<0 share +0.0000 (0.0000) n=10
+fixed true   EAS_t1  sigma +0.8886 (0.0023) n=10   resid +0.8806 (0.0032) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  sample EUR_t0  sigma +0.9309 (0.0011) n=10   resid +0.9138 (0.0013) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  sample EUR_t1  sigma +0.9295 (0.0012) n=10   resid +0.9117 (0.0016) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  sample EAS_t0  sigma +0.8866 (0.0030) n=10   resid +0.8746 (0.0041) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  sample EAS_t1  sigma +0.8906 (0.0026) n=10   resid +0.8807 (0.0034) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  true   EUR_t0  sigma +0.9352 (0.0008) n=10   resid +0.9193 (0.0010) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  true   EUR_t1  sigma +0.9342 (0.0010) n=10   resid +0.9181 (0.0013) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  true   EAS_t0  sigma +0.8993 (0.0024) n=10   resid +0.8874 (0.0032) n=10   resid<0 share +0.0000 (0.0000) n=10
+auto  true   EAS_t1  sigma +0.9019 (0.0022) n=10   resid +0.8933 (0.0029) n=10   resid<0 share +0.0000 (0.0000) n=10
+
+=== held-out corr_pred, mean over traits, then over seeds ===
+fixed EUR prscsx_mt sample +0.2655 (0.0026) n=10   true +0.2716 (0.0026) n=10   true-sample +0.0061 (0.0010) n=10
+fixed EUR prscsx    sample +0.2641 (0.0028) n=10   true +0.2672 (0.0027) n=10   true-sample +0.0032 (0.0003) n=10
+fixed EAS prscsx_mt sample +0.2285 (0.0021) n=10   true +0.2319 (0.0019) n=10   true-sample +0.0035 (0.0008) n=10
+fixed EAS prscsx    sample +0.2081 (0.0025) n=10   true +0.2104 (0.0024) n=10   true-sample +0.0023 (0.0003) n=10
+auto  EUR prscsx_mt sample +0.2677 (0.0028) n=10   true +0.2721 (0.0028) n=10   true-sample +0.0044 (0.0009) n=10
+auto  EUR prscsx    sample +0.2640 (0.0027) n=10   true +0.2665 (0.0026) n=10   true-sample +0.0025 (0.0004) n=10
+auto  EAS prscsx_mt sample +0.2311 (0.0020) n=10   true +0.2357 (0.0019) n=10   true-sample +0.0046 (0.0013) n=10
+auto  EAS prscsx    sample +0.2150 (0.0025) n=10   true +0.2186 (0.0026) n=10   true-sample +0.0035 (0.0005) n=10
+
+reproduction vs h0.1 sweep, fixed-phi sample arm: max |diff| 0.00000 over 20 (seed, pop)
