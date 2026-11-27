@@ -13,6 +13,10 @@ the draws the sampler averages (itr > n_burnin, itr % thin == 0):
   ("at the cap"), share with psi > 1 (only possible under 'none'), mean psi,
   and mean of the largest 1% of psi.
 
+Optional scenario key `prscsx_psi_cap` ('clamp' | 'none') does the same for the
+single-trait PRS-CSx baseline; it needs PRScsx on branch exp/uncapped-psi.
+Scenarios without the key leave PRS-CSx untouched (as in the psi_cap/ runs).
+
 Needs SWEEP_DIR set to sim_sweep/.
 """
 import sys, os, json, math
@@ -27,7 +31,9 @@ argv = sys.argv
 n_burnin = int(argv[argv.index('--n_burnin') + 1])
 sc_name = argv[argv.index('--scenario_name') + 1]
 sc_file = argv[argv.index('--scenarios_file') + 1]
-psi_cap = next(s for s in json.load(open(sc_file)) if s['name'] == sc_name)['psi_cap']
+scenario = next(s for s in json.load(open(sc_file)) if s['name'] == sc_name)
+psi_cap = scenario['psi_cap']
+prscsx_psi_cap = scenario.get('prscsx_psi_cap')
 
 mt = r.mcmc_gtb_mt
 if not hasattr(mt, '_update_psi'):
@@ -38,6 +44,17 @@ def mcmc_with_cap(*a, **kw):
     kw['psi_cap'] = psi_cap
     return _mcmc(*a, **kw)
 mt.mcmc = mcmc_with_cap
+
+if prscsx_psi_cap is not None:
+    import inspect
+    orig = r._mcmc_orig
+    if 'psi_cap' not in inspect.signature(orig.mcmc).parameters:
+        sys.exit('PRScsx at %s has no psi_cap support; check out exp/uncapped-psi' % orig.__file__)
+    _mcmc_cs = orig.mcmc
+    def mcmc_cs_with_cap(*a, **kw):
+        kw['psi_cap'] = prscsx_psi_cap
+        return _mcmc_cs(*a, **kw)
+    orig.mcmc = mcmc_cs_with_cap
 
 cur = {'sig': None, 'r': None, 'psi': None}
 
@@ -96,7 +113,9 @@ def traced_fit(*a, **kw):
         cur['sig'] = cur['r'] = cur['psi'] = None
         pops = list(a[4]) if len(a) > 4 else list(kw['pop_labels'])
         rec = {'prscsx_mt_sha': os.environ.get('SCALE_MT_SHA', r.PRSCSX_MT_SHA),
-               'psi_cap': psi_cap, 'cross_trait': kw.get('cross_trait'),
+               'psi_cap': psi_cap, 'prscsx_psi_cap': prscsx_psi_cap,
+               'prscsx_sha': os.environ.get('SCALE_CS_SHA', r.PRSCSX_SHA),
+               'cross_trait': kw.get('cross_trait'),
                'phi': kw.get('phi'), 'a': kw.get('a'), 'sigma': {}, 'r': {}, 'psi': {}}
         for (pp, tt), v in sorted(sig.items()):
             s = [x[0] for x in v]; res = [x[1] for x in v]
