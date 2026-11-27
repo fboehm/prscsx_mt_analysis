@@ -1,0 +1,15 @@
+psi | delta, q: GIG(-1, 2 delta, q) on (0, 1]
+  PASS q=0.5 delta=50 (P(GIG<=1)=1.000)             invariance KS p=0.193  converge KS p=0.736
+  PASS q=5 delta=5 (P(GIG<=1)=0.904)                invariance KS p=0.349  converge KS p=0.097
+  PASS q=30 delta=1.5 (P(GIG<=1)=0.000)             invariance KS p=0.752  converge KS p=0.608
+  PASS q=300 delta=1.5 (P(GIG<=1)=0.000)            invariance KS p=0.268  converge KS p=0.908
+  PASS q=2 delta=0.05 (P(GIG<=1)=0.419)             invariance KS p=0.899  converge KS p=0.850
+delta | psi, phi under the truncated psi prior
+  PASS psi=1 phi=0.01                               invariance KS p=0.038  converge KS p=0.893
+  PASS psi=0.05 phi=0.01                            invariance KS p=0.602  converge KS p=0.067
+  PASS psi=0.0001 phi=1                             invariance KS p=0.613  converge KS p=0.563
+  PASS psi=0.9 phi=1                                invariance KS p=0.166  converge KS p=0.801
+  (psi=1 phi=0.01: E[delta] conjugate 1.49, truncated 0.77)
+  (psi=0.05 phi=0.01: E[delta] conjugate 25.00, truncated 23.48)
+
+0 failed

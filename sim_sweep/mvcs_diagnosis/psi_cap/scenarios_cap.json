@@ -1,0 +1,227 @@
+[
+ {
+  "name": "cap_clamp_EUR20k_EAS3k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "clamp"
+ },
+ {
+  "name": "cap_truncate_EUR20k_EAS3k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "truncate"
+ },
+ {
+  "name": "cap_none_EUR20k_EAS3k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "none"
+ },
+ {
+  "name": "cap_clamp_EUR20k_EAS20k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    20000,
+    20000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "clamp"
+ },
+ {
+  "name": "cap_truncate_EUR20k_EAS20k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    20000,
+    20000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "truncate"
+ },
+ {
+  "name": "cap_none_EUR20k_EAS20k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    20000,
+    20000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "none"
+ },
+ {
+  "name": "cap_clamp_EUR3k_EAS3k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    3000,
+    3000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "clamp"
+ },
+ {
+  "name": "cap_truncate_EUR3k_EAS3k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    3000,
+    3000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "truncate"
+ },
+ {
+  "name": "cap_none_EUR3k_EAS3k",
+  "group": "psi_cap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    3000,
+    3000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true",
+  "psi_cap": "none"
+ }
+]
