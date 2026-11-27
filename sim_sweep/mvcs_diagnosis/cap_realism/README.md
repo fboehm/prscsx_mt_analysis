@@ -84,3 +84,44 @@ python3 summarize.py > summary.txt
 
 - `launch.sh`, `submit_realism.sh`, `summarize.py`, `scenarios_realism.json`, `jobs.txt`
 - tracer: `../psi_cap/run_cap.py`; `runs/` (not tracked); `logs/`
+
+## Result (2026-11-27)
+
+120/120 replicates; no crashes or timeouts. All three n_causal-200 arms reproduce
+their earlier runs exactly (max |diff| 0 over 80 each). Full output in
+`summary.txt`; differences paired over seeds 1–10.
+
+**The sample panel changes nothing about the cap.** Uncapped fits on the 500-person
+panel all ran, and the cap's effect differs between true and sample LD by at most
+about 0.003–0.008. This panel shares the GWAS ancestry and is shrunk with ridge 0.1,
+so it is a mild mismatch. It is not evidence about cross-ancestry or badly matched
+panels.
+
+**The cap's effect depends on N and architecture, in opposite directions.**
+Removing it (none − clamp), fixed phi:
+
+| | n_causal 200 | 1000 | 2000 |
+|---|---|---|---|
+| PRS-CSx, EUR N 20k | +0.009 | +0.003 | −0.003 |
+| PRS-CSx, EAS N 3k | +0.007 | −0.006 | −0.011 |
+| mvcs, EUR N 20k | +0.012 | +0.009 | +0.007 |
+| mvcs, EAS N 3k | +0.005 | −0.005 | −0.009 |
+
+With auto phi, removing the cap helps at 20k for every architecture (+0.008 to
++0.018) and hurts at 3k (to −0.016). Uncapped sigma at 3k falls to 0.72–0.84 (true
+0.90): over-fitting. Capped sigma at 20k sits at 0.93–0.95: under-fitting. **The cap
+under-fits at large N and protects against over-fitting at small N, so neither
+setting is right everywhere.** That fits its form: ψ ≤ 1 bounds the prior variance
+at σ/n, one GWAS standard error, a bound that tightens as N grows.
+
+**mvcs beats PRS-CSx like for like in every arm.** Both uncapped: EUR +0.006 to
++0.017, EAS +0.016 to +0.025. Both capped: EUR +0.001 to +0.015 (two arms within
+noise of 0), EAS +0.016 to +0.023. At 20k the gap widens without the cap and with
+more causal SNPs.
+
+**The overshoot is not a sparse-architecture artefact.** Capped, EUR r is 0.95–0.99
+at every n_causal, and 6–8% of SNPs sit at the cap even when all 2,000 are causal
+(per-SNP noncentrality ~1.1). A likely reason, not tested: ψ is fit to
+q = αᵀR⁻¹α, and an R near 0.97 inflates R⁻¹ about 15-fold, so the overshoot itself
+pushes ψ into the cap. Uncapped, EUR r is 0.75 / 0.83 / 0.85 across n_causal; EAS
+ranges 0.68–0.90.
