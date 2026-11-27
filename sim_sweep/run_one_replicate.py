@@ -489,7 +489,9 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
         n_gwas_list = _build_n_gwas(n_pop, n_trait, scenario['n_gwas_pattern'])
 
     pop_labels = _POP_LABELS[:n_pop]
-    n_causal   = max(n_snp // 10, 5)
+    # Optional scenario key: per-SNP effect size scales as h2 / n_causal, so this
+    # sets how sparse the architecture is (default: 10% of SNPs causal).
+    n_causal   = int(scenario.get('n_causal', max(n_snp // 10, 5)))
 
     rep_dir  = os.path.join(base_out_dir, name, 'seed_%d' % seed)
     data_dir = os.path.join(rep_dir, 'data')
