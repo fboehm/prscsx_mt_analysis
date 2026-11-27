@@ -1,0 +1,47 @@
+PRScsx_mt: /mnt/c/Users/17152/OneDrive - South Dakota State University - SDSU/test_claude/PRScsx_mt
+
+[1] R: _sample_corr_exact, T = 2
+  PASS R on-model r0=+0.00 dof=50                     target 0.0552+-0.1184  invariance KS p=0.654  converge KS p=0.651  moved 100%
+  PASS R on-model r0=+0.50 dof=200                    target 0.5379+-0.0459  invariance KS p=0.043  converge KS p=0.765  moved 100%
+  PASS R on-model r0=+0.80 dof=2000                   target 0.7946+-0.0065  invariance KS p=0.358  converge KS p=0.595  moved 100%
+  PASS R on-model r0=+0.95 dof=2000                   target 0.9511+-0.0015  invariance KS p=0.430  converge KS p=0.049  moved 100%
+  PASS R on-model r0=-0.70 dof=2000                   target -0.7118+-0.0091  invariance KS p=0.544  converge KS p=0.225  moved 100%
+  PASS R off-scale diag(S)=(0.3,1.7)*dof, dof=2000    target 0.6063+-0.0121  invariance KS p=0.083  converge KS p=0.066  moved 100%
+  PASS R off-scale diag(S)=(5,5)*dof, dof=2000        target 0.5670+-0.0065  invariance KS p=0.320  converge KS p=0.076  moved 100%
+
+[2] sigma: _sample_sigma_mvcs
+  PASS sigma EUR-like n=20000 p=2000 B/A=+0.0         target 0.9302+-0.0089  invariance KS p=0.297  converge KS p=0.366
+  PASS sigma EUR-like n=20000 p=2000 B/A=-0.4         target 0.7672+-0.0070  invariance KS p=0.926  converge KS p=0.670
+  PASS sigma EUR-like n=20000 p=2000 B/A=+0.2         target 1.0243+-0.0100  invariance KS p=0.578  converge KS p=0.494
+  PASS sigma EAS-like n=3000 p=2000 B/A=+0.0          target 0.9307+-0.0186  invariance KS p=0.081  converge KS p=0.790
+  PASS sigma EAS-like n=3000 p=2000 B/A=-0.4          target 0.7677+-0.0146  invariance KS p=0.391  converge KS p=0.137
+  PASS sigma EAS-like n=3000 p=2000 B/A=+0.2          target 1.0250+-0.0210  invariance KS p=0.251  converge KS p=0.481
+  PASS sigma small n=30 p=10 B/A=+0.0                 target 1.0279+-0.2423  invariance KS p=0.461  converge KS p=0.597
+  PASS sigma small n=30 p=10 B/A=-0.4                 target 0.8405+-0.1876  invariance KS p=0.609  converge KS p=0.876
+  PASS sigma small n=30 p=10 B/A=+0.2                 target 1.1367+-0.2748  invariance KS p=0.207  converge KS p=0.680
+
+[3] beta: block update inside mcmc(), R / sigma / psi pinned
+  PASS beta pop0 mean (48 SNP x trait)                max |z| 2.36 over 48 (batch-means SE, 29000 draws)
+  PASS beta pop0 var (48 SNP x trait)                 max |z| 2.03 over 48 (batch-means SE, 29000 draws)
+  PASS beta pop0 cross-trait cov (24 SNP x trait)     max |z| 1.98 over 24 (batch-means SE, 29000 draws)
+  INFO beta pop0 posterior cross-trait corr (info)    mean exact 0.935  mcmc 0.935  max |diff| 0.003
+  PASS beta pop1 mean (48 SNP x trait)                max |z| 2.96 over 48 (batch-means SE, 29000 draws)
+  PASS beta pop1 var (48 SNP x trait)                 max |z| 1.99 over 48 (batch-means SE, 29000 draws)
+  PASS beta pop1 cross-trait cov (24 SNP x trait)     max |z| 1.86 over 24 (batch-means SE, 29000 draws)
+  INFO beta pop1 posterior cross-trait corr (info)    mean exact 0.541  mcmc 0.541  max |diff| 0.008
+
+[4] psi: gigrnd vs scipy GIG; the psi <= 1 clamp
+  PASS psi gigrnd null SNP  q=0.5  delta=50           KS p=0.066  mean 0.067 vs 0.066
+  INFO psi clamp  null SNP  q=0.5  delta=50           P(GIG>1) 0.000  E[psi] clamp 0.067 vs truncated 0.066  KS dist 0.000
+  PASS psi gigrnd weak      q=5    delta=5            KS p=0.642  mean 0.664 vs 0.662
+  INFO psi clamp  weak      q=5    delta=5            P(GIG>1) 0.096  E[psi] clamp 0.645 vs truncated 0.605  KS dist 0.096
+  PASS psi gigrnd causal    q=30   delta=1.5          KS p=0.388  mean 3.030 vs 3.008
+  INFO psi clamp  causal    q=30   delta=1.5          P(GIG>1) 1.000  E[psi] clamp 1.000 vs truncated 0.936  KS dist 0.999
+  PASS psi gigrnd strong    q=300  delta=1.5          KS p=0.101  mean 9.787 vs 9.837
+  INFO psi clamp  strong    q=300  delta=1.5          P(GIG>1) 1.000  E[psi] clamp 1.000 vs truncated 0.993  KS dist 0.993
+
+[5] positive controls: the pre-3fb1b99 defects must fail these tests
+  PASS control: rescaled-IW R draw (off-scale S)      KS p=0  mean 0.8491 vs target 0.6063 (PASS = defect detected)
+  PASS control: sigma without the B term              KS p=0  mean 0.9318 vs target 0.7672 (PASS = defect detected)
+
+28 tests, 0 failed; 6 info lines
