@@ -68,3 +68,35 @@ Its δ update is a slice step and may mix more slowly; read it from the full run
 - `run_cap.py`, `launch.sh`, `submit_cap.sh`, `summarize.py`, `scenarios_cap.json`, `jobs.txt`
 - `check_updates.py` / `check_updates.txt`: exactness of the `truncate` updates
 - `runs/` (not tracked): replicate trees and `trace_*.json`; `logs/`
+
+## Result (2026-11-27)
+
+90/90 tasks on `a60d130`. The clamp arms reproduce `n_swap` exactly (max |diff|
+0.00000 over 120), and PRS-CSx's corr_pred is identical across caps. Full output
+in `summary.txt`. Paired differences are against `clamp`, mean (sem) over 10 seeds.
+
+**The cap causes the overshoot at large N.** With fixed phi and no cap, r in each
+20k population falls from 0.88–0.96 to 0.75–0.78 (EUR 20k/3k: 0.964 → 0.745, paired
+−0.219 (0.009)). Sigma falls from ~0.93 to 0.894–0.899, the true value. Under
+`clamp`, 6–8% of SNPs sit at the cap. Without it, 10–12% exceed 1, and the top 1%
+average 49–72 at N = 20k (17 at 3k/3k).
+
+**Removing the cap improves prediction in every cell.** mvcs corr_pred rises by
++0.012 (sem ~0.001) wherever a population has N = 20k, and by +0.002 to +0.005 at
+3k. mvcs's lead over PRS-CSx at 20k grows from +0.002–0.006 to +0.014–0.017.
+
+**The clamp approximation isn't the problem; the cap is.** With fixed phi,
+`truncate` ≈ `clamp` at 20k (r −0.015 and −0.002, sigma +0.001), as the per-step
+test predicted.
+
+**Costs and loose ends:**
+- Without the cap, r undershoots: 0.75–0.78 at 20k and 0.67–0.70 at 3k/3k, while
+  EAS in the 20k/3k cell overshoots (0.890). Learned r isn't calibrated either way.
+- Without the cap, sigma at N = 3k is *under* 0.90 (0.83–0.85), a sign of
+  over-fitting there.
+- `truncate` with auto phi misbehaves: sigma 0.78–0.84, mean psi 0.50 against
+  0.12 under clamp, and prediction down by as much as 0.054. Not pursued.
+- **The comparison with PRS-CSx is now unfair:** PRS-CSx still runs with its cap.
+  Part of the +0.012 may be cap removal, which PRS-CSx would get too.
+- Only h2 = 0.1. At h2 = 0.5 a cap of 100 broke the fit (`../cap100/`, one seed,
+  short chain).
