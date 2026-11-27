@@ -372,6 +372,83 @@ def _evaluate(out_dir, out_name, data_dir, pop_labels, n_trait, is_mt,
     return results
 
 
+def _load_true_ld(data_dir, pop_labels):
+    """{pop: [true LD blocks in SNP order]} from simulate_realistic's
+    true_ld_<POP>.npz, or None if absent (analytic mode, or older data)."""
+    out = {}
+    for pop in pop_labels:
+        path = os.path.join(data_dir, 'true_ld_%s.npz' % pop)
+        if not os.path.isfile(path):
+            return None
+        z = np.load(path)
+        out[pop] = [z['b%d' % k] for k in range(len(z.files))]
+    return out
+
+
+def _snp_het(data_dir, pop):
+    """{snp: sqrt(2 f (1 - f))} from the snpinfo file, i.e. exactly the het the
+    samplers divided by when they wrote per-allele posterior effects."""
+    het = {}
+    with open(os.path.join(data_dir, 'snpinfo_mult_1kg_hm3')) as fh:
+        cols = next(fh).split()
+        i_snp, i_frq = cols.index('SNP'), cols.index('FRQ_' + pop.upper())
+        for line in fh:
+            ll = line.split()
+            f = float(ll[i_frq])
+            het[ll[i_snp]] = np.sqrt(2.0 * f * (1.0 - f))
+    return het
+
+
+def _evaluate_analytic(out_dir, out_name, data_dir, pop_labels, n_trait, is_mt,
+                       true_ld, single_trait_idx=None):
+    """Population (infinite-test-set) prediction accuracy, no test noise.
+
+    With standardised genotypes, true LD D and true effects beta scaled so
+    var(y) = 1, a weight vector w gives corr(X w, y) = w'D beta / sqrt(w'D w).
+    The samplers write per-allele effects (standardised / het), so w = effect x
+    het. Returns {(pp, tt): (r, r_unscaled)}, r_unscaled using the per-allele
+    effects as weights, which is what the empirical corr_pred scores against
+    standardised test genotypes."""
+    results = {}
+    if true_ld is None:
+        return results
+    for pp, pop in enumerate(pop_labels):
+        het = _snp_het(data_dir, pop)
+        blocks = true_ld[pop]
+        for tt in range(n_trait):
+            path = _find_posterior(out_dir, out_name, pop, tt, is_mt)
+            if path is None:
+                continue
+            beta_est, snps_est = _read_effects(path)
+            true_tt = single_trait_idx if single_trait_idx is not None else tt
+            tmap = _read_true_effects(os.path.join(
+                data_dir, 'true_effects_%s_trait%d.txt' % (pop, true_tt)))
+            snps_all = list(tmap.keys())           # file order = SNP order of the blocks
+            pos = {s: i for i, s in enumerate(snps_all)}
+            b = np.array([tmap[s] for s in snps_all])
+            out = []
+            for scale in (True, False):
+                w = np.zeros(len(snps_all))
+                for e, s in zip(beta_est, snps_est):
+                    if s in pos:
+                        w[pos[s]] = e * (het[s] if scale else 1.0)
+                num = den = 0.0
+                sh = 0
+                for blk in blocks:
+                    k = blk.shape[0]
+                    wb = w[sh:sh + k]
+                    num += wb @ blk @ b[sh:sh + k]
+                    den += wb @ blk @ wb
+                    sh += k
+                out.append(float(num / np.sqrt(den)) if den > 0 else 0.0)
+            results[(pp, tt)] = tuple(out)
+    return results
+
+
+_ANALYTIC_FIELDS = ['scenario', 'seed', 'phi_mode', 'a', 'method', 'pop', 'trait',
+                    'h2', 'corr_pred_analytic', 'corr_pred_analytic_unscaled']
+
+
 def _load_test_data(data_dir, pop_labels):
     """Load the held-out test set written by simulate_realistic. Returns a dict
     {'name2col', 'geno': {pop: X}, 'pheno': {pop: Y}} or None if absent (i.e.
@@ -470,6 +547,11 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
     # shrunk reference panel (see simulate_realistic's true_ld_ref). Same data
     # otherwise, so a 'true' scenario pairs seed-for-seed with its 'sample' twin.
     ld_ref = scenario.get('ld_ref', 'sample')
+    # 'sumstat' draws GWAS estimates from their sampling distribution instead of
+    # OLS on genotypes (for biobank N); no test cohort, so score analytically.
+    gwas_mode = scenario.get('gwas_mode', 'indiv')
+    if gwas_mode != 'indiv' and sim_mode != 'realistic':
+        raise ValueError('scenario %r: gwas_mode=%r needs sim_mode realistic' % (name, gwas_mode))
     if ld_ref not in ('sample', 'true'):
         raise ValueError('scenario %r: ld_ref=%r must be "sample" or "true"'
                          % (name, ld_ref))
@@ -505,7 +587,7 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
             rg=rg, frac_shared_causal=frac, rho_pop=rho_pop, h2=h2,
             rho_pheno=rho_pheno, n_overlap=n_overlap,
             n_ref=n_ref, n_test=n_test, ld_hetero=ld_hetero,
-            true_ld_ref=(ld_ref == 'true'),
+            true_ld_ref=(ld_ref == 'true'), gwas_mode=gwas_mode,
             pop=pop_labels, out_dir=data_dir, chrom=1, seed=_derive_seed(seed, 0))
     else:
         simulate_mt.simulate_mt(
@@ -517,6 +599,19 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
 
     # Held-out test set (present only in realistic mode) for prediction scoring.
     test_data = _load_test_data(data_dir, pop_labels)
+    true_ld = _load_true_ld(data_dir, pop_labels)
+    analytic_rows = []
+
+    def _analytic(out_dir, out_name, n_tr, is_mt, method, phi_mode, a, single_trait_idx=None):
+        for (pp, tt0), (r, r_un) in _evaluate_analytic(
+                out_dir, out_name, data_dir, pop_labels, n_tr, is_mt, true_ld,
+                single_trait_idx=single_trait_idx).items():
+            tt = single_trait_idx if single_trait_idx is not None else tt0
+            analytic_rows.append({
+                'scenario': name, 'seed': seed, 'phi_mode': phi_mode, 'a': a,
+                'method': method, 'pop': pop_labels[pp], 'trait': tt,
+                'h2': h2[tt] if tt < len(h2) else h2[-1],
+                'corr_pred_analytic': r, 'corr_pred_analytic_unscaled': r_un})
 
     n_gwas_dict = {(pp, tt): n_gwas_list[pp][tt]
                    for pp in range(n_pop) for tt in range(n_trait)}
@@ -588,6 +683,7 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
                         out_st, nm, pop_labels, 1, False, test_data,
                         single_trait_idx=tt, idx=tune_idx).items():
                     t_st[(pp, tt)] = c
+            _analytic(out_st, nm, 1, False, 'prscsx', phi_mode, a, single_trait_idx=tt)
         out['prscsx'] = (c_st, v_st, t_st, time.time() - t0)
 
         # PRS-CSx-MT (cross-trait + cross-ancestry, jointly)
@@ -597,6 +693,7 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
                        out_mt, 'prs_mt', n_trait, rho_e, n_iter, n_burnin,
                        _derive_seed(seed, 2), phi=phi, a=a,
                        cross_trait=cross_trait)
+        _analytic(out_mt, 'prs_mt', n_trait, True, 'prscsx_mt', phi_mode, a)
         out['prscsx_mt'] = (
             _evaluate(out_mt, 'prs_mt', data_dir, pop_labels,
                       n_trait=n_trait, is_mt=True),
@@ -660,6 +757,11 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
                                 corr_pred=v_a.get((pp, tt), ''),
                                 corr_pred_tune=t_a.get((pp, tt), ''),
                                 time_s=round(s_a, 1)))
+    if analytic_rows:
+        with open(os.path.join(rep_dir, 'pred_analytic.csv'), 'w', newline='') as fh:
+            w = csv.DictWriter(fh, fieldnames=_ANALYTIC_FIELDS)
+            w.writeheader()
+            w.writerows(analytic_rows)
     return rows, grid_rows
 
 

@@ -224,6 +224,7 @@ def simulate_realistic(
     h2=None, rho_pheno=0.0, n_overlap=None,
     n_ref=500, n_test=5000, ld_hetero=0.15, ld_ridge=0.1,
     true_ld_ref=False, pop=None, out_dir=None, chrom=1, seed=42,
+    gwas_mode='indiv',
 ):
     """Simulate a realistic multi-trait / multi-ancestry replicate.
 
@@ -253,9 +254,21 @@ def simulate_realistic(
         bit-identical to the default run. ``ld_mismatch`` then reports what the
         sample panel's error would have been, not zero.
 
+    gwas_mode : 'indiv' | 'sumstat'
+        'indiv' (default): GWAS by OLS on an individual-level cohort, as above.
+        'sumstat': draw the marginal estimates directly from their sampling
+        distribution, beta_hat ~ N(D beta, D/n) block by block (D the
+        population's true LD), with SE = sqrt((1 - beta_hat^2)/n) as OLS on
+        standardised data gives. Needed when n x n_snp genotypes would not fit
+        in memory (biobank N, many SNPs). No test cohort is drawn in this mode
+        (n_test is ignored); score with the analytic accuracy, which uses the
+        true LD written to true_ld_<POP>.npz.
+
     ``rho_pheno`` / ``n_overlap`` are accepted for signature compatibility but
     NOT modelled (independent GWAS cohorts); see the module docstring.
     """
+    if gwas_mode not in ('indiv', 'sumstat'):
+        raise ValueError("gwas_mode must be 'indiv' or 'sumstat'")
     if n_causal is None:
         n_causal = max(n_snp // 10, 5)
     if n_gwas is None:
@@ -322,16 +335,31 @@ def simulate_realistic(
     ld_mismatch = {}         # pp -> Frobenius-normalised ref-vs-true LD error
 
     for pp in range(n_pop):
-        # GWAS cohort: an independent draw per trait -> univariate OLS sumstats.
+        # GWAS cohort: an independent draw per trait -> univariate OLS sumstats,
+        # or (sumstat mode) the marginal estimates drawn from their sampling law.
         for tt in range(n_trait):
             n_indiv = n_gwas[pp][tt]
             n_gwas_dict[(pp, tt)] = n_indiv
-            X = _draw_geno(n_indiv, chols_pop[pp], rng_geno)
-            y = _make_phenotype(X, beta_true[(pp, tt)], h2[tt], rng_geno)
-            bhat, se = _ols(X, y)
+            if gwas_mode == 'sumstat':
+                b = beta_true[(pp, tt)]
+                mean, noise, sh = np.empty(n_snp), np.empty(n_snp), 0
+                for blk, L in zip(blocks_pop[pp], chols_pop[pp]):
+                    k = blk.shape[0]
+                    mean[sh:sh + k] = blk @ b[sh:sh + k]
+                    noise[sh:sh + k] = L @ rng_geno.randn(k)
+                    sh += k
+                # var(y) = 1, so the marginal estimates' noise is ~ D/n: the
+                # residual (1 - h2) plus the GWAS sample's own LD error, (S - D)
+                # beta, which adds ~h2/n (checked against the OLS path).
+                bhat = mean + np.sqrt(1.0 / n_indiv) * noise
+                se = np.sqrt(np.maximum(1.0 - bhat ** 2, 1e-12) / n_indiv)
+            else:
+                X = _draw_geno(n_indiv, chols_pop[pp], rng_geno)
+                y = _make_phenotype(X, beta_true[(pp, tt)], h2[tt], rng_geno)
+                bhat, se = _ols(X, y)
+                del X
             beta_mrg[(pp, tt)] = bhat.reshape(-1, 1)
             gwas_se[(pp, tt)] = se
-            del X
 
         # Reference panel: finite sample-LD, shrunk, as the PRS-CSx reference.
         Xr = _draw_geno(n_ref, chols_pop[pp], rng_geno)
@@ -354,6 +382,8 @@ def simulate_realistic(
         del Xr
 
         # Held-out test cohort (shared genotypes across traits within a pop).
+        if gwas_mode == 'sumstat':
+            continue
         Xt = _draw_geno(n_test, chols_pop[pp], rng_geno)
         ph = np.empty((n_test, n_trait), dtype=np.float64)
         for tt in range(n_trait):
@@ -392,6 +422,8 @@ def simulate_realistic(
         'ld_mismatch': ld_mismatch,
         'test_geno': test_geno,
         'test_pheno': test_pheno,
+        'blocks_pop': blocks_pop,
+        'gwas_mode': gwas_mode,
     }
 
     if out_dir is not None:
@@ -474,19 +506,27 @@ def _write_realistic_files(sim_data, out_dir, chrom):
                 for i in range(n_snp):
                     fh.write('%s\t%.6e\n' % (si['SNP'][i], bt[i]))
 
-    # held-out test set (for out-of-sample prediction scoring)
-    with open(os.path.join(out_dir, 'test_snps.txt'), 'w') as fh:
-        fh.write('\n'.join(si['SNP']) + '\n')
+    # held-out test set (for out-of-sample prediction scoring); none in sumstat mode
+    if sim_data['test_geno']:
+        with open(os.path.join(out_dir, 'test_snps.txt'), 'w') as fh:
+            fh.write('\n'.join(si['SNP']) + '\n')
+        for pp in range(n_pop):
+            np.save(os.path.join(out_dir, 'test_geno_%s.npy' % pop[pp]),
+                    sim_data['test_geno'][pp])
+            np.save(os.path.join(out_dir, 'test_pheno_%s.npy' % pop[pp]),
+                    sim_data['test_pheno'][pp])
+
+    # each population's TRUE LD blocks, in SNP order, for the analytic accuracy
+    # corr(PRS, y) = w'D beta / sqrt(w'D w) (var y = 1 by construction)
     for pp in range(n_pop):
-        np.save(os.path.join(out_dir, 'test_geno_%s.npy' % pop[pp]),
-                sim_data['test_geno'][pp])
-        np.save(os.path.join(out_dir, 'test_pheno_%s.npy' % pop[pp]),
-                sim_data['test_pheno'][pp])
+        np.savez(os.path.join(out_dir, 'true_ld_%s.npz' % pop[pp]),
+                 **{'b%d' % k: blk for k, blk in enumerate(sim_data['blocks_pop'][pp])})
 
     # small provenance / diagnostics sidecar
     with open(os.path.join(out_dir, 'sim_meta.json'), 'w') as fh:
         json.dump({
             'sim_mode': 'realistic',
+            'gwas_mode': sim_data['gwas_mode'],
             'pop': pop,
             'n_snp': n_snp, 'n_pop': n_pop, 'n_trait': n_trait,
             'ld_decays': sim_data['decays'],

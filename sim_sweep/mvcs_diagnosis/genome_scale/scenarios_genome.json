@@ -1,0 +1,466 @@
+[
+ {
+  "name": "gs_h0.1_pi1_N20k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.1_pi1_N20k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.1_pi1_N300k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.1_pi1_N300k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.1_pi10_N20k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.1_pi10_N20k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.1_pi10_N300k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.1_pi10_N300k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.001,
+   0.001
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.1
+ },
+ {
+  "name": "gs_h0.5_pi1_N20k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.5
+ },
+ {
+  "name": "gs_h0.5_pi1_N20k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.5
+ },
+ {
+  "name": "gs_h0.5_pi1_N300k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.5
+ },
+ {
+  "name": "gs_h0.5_pi1_N300k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 100,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.5
+ },
+ {
+  "name": "gs_h0.5_pi10_N20k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.5
+ },
+ {
+  "name": "gs_h0.5_pi10_N20k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.5
+ },
+ {
+  "name": "gs_h0.5_pi10_N300k_clamp",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp",
+  "h2_genome": 0.5
+ },
+ {
+  "name": "gs_h0.5_pi10_N300k_none",
+  "group": "genome_scale",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2": [
+   0.005,
+   0.005
+  ],
+  "n_causal": 1000,
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "none",
+  "prscsx_psi_cap": "none",
+  "h2_genome": 0.5
+ }
+]
