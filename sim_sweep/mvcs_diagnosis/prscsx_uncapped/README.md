@@ -67,3 +67,33 @@ python3 summarize.py > summary.txt
 
 - `launch.sh`, `submit_uncapped.sh`, `summarize.py`, `scenarios_uncapped.json`, `jobs.txt`
 - `runs/` (not tracked); `logs/`
+
+## Result (2026-11-27)
+
+30/30 tasks. mvcs reproduces `psi_cap`'s `cap_none` arm exactly (max |diff| 0 over
+120). Full output in `summary.txt`; all differences paired over seeds 1–10, mean (sem).
+
+**Most of mvcs's gain from dropping the cap is cap removal, which PRS-CSx gets
+too.** Uncapped, PRS-CSx gains +0.009 wherever N = 20k (+0.0076 to +0.0095, sem
+≤ 0.0008), against mvcs's +0.012. At 3k it gains +0.003 with fixed phi, and
++0.014 to +0.017 with auto phi in the 3k/3k cell.
+
+**Like for like, mvcs still beats PRS-CSx, and the uncapped gap is a little wider
+at 20k.** mvcs − PRS-CSx at N = 20k is +0.002–0.006 with both capped and +0.006–0.008
+with both uncapped (paired change +0.002 to +0.004). At N = 3k the gap is large either
+way: +0.020 to +0.029 uncapped, about the same as capped with fixed phi. With auto
+phi in 3k/3k it narrows (EUR +0.038 → +0.026) because PRS-CSx gains more there.
+
+**Decomposition of mvcs uncapped − PRS-CSx capped:**
+
+| | total | cap removal | method |
+|---|---|---|---|
+| N = 20k (4 rows per phi arm) | +0.014 to +0.017 | +0.008 to +0.010 | +0.006 to +0.008 |
+| N = 3k | +0.018 to +0.046 | −0.002 to +0.017 | +0.020 to +0.029 |
+
+So mvcs's cross-trait sharing is worth about +0.006–0.008 at N = 20k and
++0.020–0.029 at N = 3k, in this simulation, with both methods on the same prior.
+The cap costs both methods about 0.009 at 20k. That probably reflects this
+simulation's sparse, large effects (200 causal SNPs, z ≈ 3 at 20k), so it shouldn't be
+read as a statement about real traits. Report mvcs against PRS-CSx with the same cap
+setting.
