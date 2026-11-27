@@ -67,3 +67,17 @@ EAS is the control: its r should stay ~0.8 in both arms.
 - `run_overshoot.py`, `submit_overshoot.sh`, `launch.sh`, `summarize.py`
 - `scenarios_overshoot.json`, `jobs.txt`
 - `runs/` (not tracked): replicate trees and `trace_*.json`; `logs/`.
+
+## Result (2026-11-27)
+
+20/20 tasks; the sample arm reproduces the h0.1 sweep exactly (max |diff| 0.00000).
+Full output in `summary.txt`.
+
+**Not the reference.** With the true LD, EUR r barely moves: fixed-phi 0.971 → 0.964
+(paired −0.007, sem 0.004), auto-phi 0.963 → 0.962. EUR `sigma` is ~0.93 in *both*
+arms (slightly higher under the true LD), and the residual is never floored
+(resid < 0 share 0.000 everywhere). The true LD pulls EAS r toward 0.8 (+0.04 to
++0.05) and raises held-out corr_pred by only ~0.003–0.006 for every method. `mvcs`
+beats PRS-CSx on prediction in both arms (EUR +0.001 to +0.004, EAS +0.016 to +0.020).
+
+Next: `../n_swap/`, which swaps the GWAS N between EUR and EAS.

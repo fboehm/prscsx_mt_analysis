@@ -1,0 +1,98 @@
+[
+ {
+  "name": "nswap_EUR20k_EAS3k",
+  "group": "n_swap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true"
+ },
+ {
+  "name": "nswap_EUR3k_EAS20k",
+  "group": "n_swap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    3000,
+    3000
+   ],
+   [
+    20000,
+    20000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true"
+ },
+ {
+  "name": "nswap_EUR3k_EAS3k",
+  "group": "n_swap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    3000,
+    3000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true"
+ },
+ {
+  "name": "nswap_EUR20k_EAS20k",
+  "group": "n_swap",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    20000,
+    20000
+   ]
+  ],
+  "h2": [
+   0.1,
+   0.1
+  ],
+  "cross_trait": "mvcs",
+  "ld_ref": "true"
+ }
+]
