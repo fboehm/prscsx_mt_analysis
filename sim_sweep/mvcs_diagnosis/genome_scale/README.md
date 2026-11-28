@@ -84,3 +84,48 @@ python3 summarize.py > summary.txt
 Smoke test (seed 1, 300 iterations, the h2 0.5 / 1% / 300k pair): both arms ran.
 Uncapped, the top 1% of psi reached about 13 and nothing diverged. Learned r was low
 (0.2–0.7) on that short chain; read r from the full run.
+
+## Result (2026-11-28)
+
+160/160 replicates, no failures. Full output in `summary.txt`. "rel" = accuracy as a
+share of its ceiling √h2_region; differences paired over seeds 1–10. Read auto phi
+first (fixed φ = 10⁻² is mis-set at this scale).
+
+**1. With realistic per-SNP signal and p > n, the cap is what stops over-fitting.**
+In the EUR 20k / EAS 3k tier the region has 10,000 SNPs against N = 20k and 3k.
+Uncapped, both methods lose accuracy in every arm:
+- PRS-CSx −0.009 to −0.048 rel, mvcs −0.007 to −0.100.
+- mvcs's sigma collapses: EUR 0.76 and EAS 0.125 (auto), against a truth of ~1.00.
+  The EAS value is identical across all four h2 × causal arms, a degenerate fixed
+  point rather than a fit.
+- 83% of SNPs have ψ > 1, with the top 1% averaging ~256.
+
+The earlier 2,000-SNP runs had p < n (2,000 against 3,000) and only hinted at this
+(sigma 0.83 at 3k). A real genome always has p ≫ n, so this is most likely why PRS-CS
+caps ψ.
+
+**2. At biobank N the cap's effect follows per-causal noncentrality.** Removing it:
+- helps where nc ≳ 1.5: rel +0.04 to +0.06 (EUR at 1% causal, both h2; EUR h2 0.5 at
+  10%; EAS h2 0.5 at 1%);
+- hurts where nc ≈ 0.05–0.3: rel −0.01 to −0.05 (10% causal at h2 0.1).
+
+No single setting is right; capped is the safe default.
+
+**3. mvcs beats PRS-CSx clearly at biobank N, and is neutral at small N.** Like for
+like, auto phi:
+- N 300k / 50k tier: EUR +0.035 to +0.174 rel (h2 0.1, 1% causal: 0.426 → 0.600
+  capped), EAS +0.005 to +0.150.
+- N 20k / 3k tier: −0.007 to +0.056 capped, ~0 uncapped.
+
+At realistic per-SNP signal there is little to borrow until each causal SNP carries
+some signal. This reverses the small-region picture, where the gain was largest at
+small N.
+
+**4. mvcs's r overshoot appears only at high noncentrality.** Capped, EUR r = 0.96–0.97
+where nc ≥ 1.5 (h2 0.5, 300k). It undershoots at nc 0.3–3 (0.54–0.76), and r ≈ 0 in
+the 20k / 3k tier, where R isn't learnable from one region. Uncapped r is erratic
+there (sem up to 0.33, one arm at 0.99).
+
+**Conclusions.** Keep the cap for mvcs, as in PRS-CS. Compare methods capped. mvcs's
+advantage is real and large at biobank N. Learned R isn't identifiable at small N
+from a 10k-SNP region; don't report it there.
