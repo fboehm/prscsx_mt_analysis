@@ -571,9 +571,31 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
         n_gwas_list = _build_n_gwas(n_pop, n_trait, scenario['n_gwas_pattern'])
 
     pop_labels = _POP_LABELS[:n_pop]
-    # Optional scenario key: per-SNP effect size scales as h2 / n_causal, so this
-    # sets how sparse the architecture is (default: 10% of SNPs causal).
-    n_causal   = int(scenario.get('n_causal', max(n_snp // 10, 5)))
+    # Optional: real LD for one chromosome from a PRS-CSx-format panel, as the
+    # TRUE LD. n_snp then comes from the panel (the --n_snp argument is ignored).
+    # Panel directory: $LD_PANEL_DIR, else <repo>/data/ld_ref.
+    ld_panel = None
+    if 'ld_panel' in scenario:
+        if sim_mode != 'realistic':
+            raise ValueError('scenario %r: ld_panel needs sim_mode realistic' % name)
+        lp = scenario['ld_panel']
+        ld_panel = simulate_realistic.load_ld_panel(
+            os.environ.get('LD_PANEL_DIR') or os.path.join(_repo_root, 'data', 'ld_ref'),
+            pop_labels, int(lp['chrom']), ridge=float(lp.get('ridge', 0.05)),
+            ref_type=lp.get('ref_type', '1kg'), max_snps=lp.get('max_snps'))
+        n_snp = len(ld_panel['snps'])
+    # Optional: h2 as a share of a genome of `genome_m` SNPs, h2_genome * n_snp /
+    # genome_m, so a region carries realistic per-SNP heritability.
+    if 'genome_m' in scenario:
+        h2 = [float(scenario['h2_genome']) * n_snp / float(scenario['genome_m'])] * n_trait
+    # Optional scenario keys: per-SNP effect size scales as h2 / n_causal, so these
+    # set how sparse the architecture is (default: 10% of SNPs causal).
+    if 'n_causal' in scenario and 'causal_frac' in scenario:
+        raise ValueError('scenario %r: give n_causal or causal_frac, not both' % name)
+    if 'causal_frac' in scenario:
+        n_causal = max(1, int(round(float(scenario['causal_frac']) * n_snp)))
+    else:
+        n_causal = int(scenario.get('n_causal', max(n_snp // 10, 5)))
 
     rep_dir  = os.path.join(base_out_dir, name, 'seed_%d' % seed)
     data_dir = os.path.join(rep_dir, 'data')
@@ -587,7 +609,7 @@ def run_replicate(scenario, seed, n_snp, n_iter, n_burnin, base_out_dir,
             rg=rg, frac_shared_causal=frac, rho_pop=rho_pop, h2=h2,
             rho_pheno=rho_pheno, n_overlap=n_overlap,
             n_ref=n_ref, n_test=n_test, ld_hetero=ld_hetero,
-            true_ld_ref=(ld_ref == 'true'), gwas_mode=gwas_mode,
+            true_ld_ref=(ld_ref == 'true'), gwas_mode=gwas_mode, ld_panel=ld_panel,
             pop=pop_labels, out_dir=data_dir, chrom=1, seed=_derive_seed(seed, 0))
     else:
         simulate_mt.simulate_mt(

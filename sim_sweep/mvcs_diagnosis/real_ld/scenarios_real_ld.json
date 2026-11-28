@@ -1,0 +1,374 @@
+[
+ {
+  "name": "rl_h0.1_pi1_N20k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2_genome": 0.1,
+  "genome_m": 1000000,
+  "causal_frac": 0.01,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.1_pi10_N20k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2_genome": 0.1,
+  "genome_m": 1000000,
+  "causal_frac": 0.1,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.5_pi1_N20k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2_genome": 0.5,
+  "genome_m": 1000000,
+  "causal_frac": 0.01,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.5_pi10_N20k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    20000,
+    20000
+   ],
+   [
+    3000,
+    3000
+   ]
+  ],
+  "h2_genome": 0.5,
+  "genome_m": 1000000,
+  "causal_frac": 0.1,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.1_pi1_N300k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.1,
+  "genome_m": 1000000,
+  "causal_frac": 0.01,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.1_pi1_N300k_rg0",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.1,
+  "genome_m": 1000000,
+  "causal_frac": 0.01,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.1_pi10_N300k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.1,
+  "genome_m": 1000000,
+  "causal_frac": 0.1,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.1_pi10_N300k_rg0",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.1,
+  "genome_m": 1000000,
+  "causal_frac": 0.1,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.5_pi1_N300k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.5,
+  "genome_m": 1000000,
+  "causal_frac": 0.01,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.5_pi1_N300k_rg0",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.5,
+  "genome_m": 1000000,
+  "causal_frac": 0.01,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.5_pi10_N300k_rg0.8",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.8,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.5,
+  "genome_m": 1000000,
+  "causal_frac": 0.1,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ },
+ {
+  "name": "rl_h0.5_pi10_N300k_rg0",
+  "group": "real_ld",
+  "n_pop": 2,
+  "n_trait": 2,
+  "rg": 0.0,
+  "frac_shared_causal": 1.0,
+  "n_gwas": [
+   [
+    300000,
+    300000
+   ],
+   [
+    50000,
+    50000
+   ]
+  ],
+  "h2_genome": 0.5,
+  "genome_m": 1000000,
+  "causal_frac": 0.1,
+  "ld_panel": {
+   "chrom": 22,
+   "ridge": 0.05,
+   "ref_type": "1kg"
+  },
+  "cross_trait": "mvcs",
+  "ld_ref": "sample",
+  "gwas_mode": "sumstat",
+  "psi_cap": "clamp",
+  "prscsx_psi_cap": "clamp"
+ }
+]

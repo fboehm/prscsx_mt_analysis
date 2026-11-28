@@ -111,6 +111,93 @@ def _draw_geno(n_indiv, chols, rng):
 
 
 # ---------------------------------------------------------------------------
+# Real LD from a PRS-CSx-format reference panel
+# ---------------------------------------------------------------------------
+def load_ld_panel(ref_dir, pops, chrom, ridge=0.05, ref_type='1kg', max_snps=None):
+    """Load one chromosome's LD blocks for each population from a PRS-CSx
+    reference panel (<ref_dir>/snpinfo_mult_<ref>_hm3 and
+    <ref_dir>/ldblk_<ref>_<pop>/ldblk_<ref>_chr<chrom>.hdf5), to serve as the
+    simulation's TRUE LD.
+
+    Keeps SNPs present in every population's blocks with 0 < FRQ < 1 in each.
+    Block boundaries may differ between populations; each population keeps its
+    own blocks, restricted to the common SNPs. Panel blocks are sample
+    correlations from ~500 people, often singular, so each is shrunk,
+    (1 - r) S + r I, doubling r for a block until its Cholesky succeeds.
+    `max_snps` keeps only the first SNPs (for smoke tests).
+
+    Returns a dict: snps, bp, a1, a2 (lists), frq {pop: array},
+    blocks {pop: [arrays]}, chrom, ref_type, ridge (requested), ridge_max (largest
+    used), n_blocks {pop: int}."""
+    info = {}
+    with open(os.path.join(ref_dir, 'snpinfo_mult_%s_hm3' % ref_type)) as fh:
+        cols = next(fh).split()
+        ic = {c: i for i, c in enumerate(cols)}
+        for line in fh:
+            ll = line.split()
+            if int(ll[ic['CHR']]) != chrom:
+                continue
+            info[ll[ic['SNP']]] = (int(ll[ic['BP']]), ll[ic['A1']], ll[ic['A2']],
+                                   {p: float(ll[ic['FRQ_' + p.upper()]]) for p in pops})
+    raw = {}
+    for p in pops:
+        path = os.path.join(ref_dir, 'ldblk_%s_%s' % (ref_type, p.lower()),
+                            'ldblk_%s_chr%d.hdf5' % (ref_type, chrom))
+        with h5py.File(path, 'r') as hf:
+            raw[p] = [([x.decode('UTF-8') for x in hf['blk_%d' % k]['snplist']],
+                       np.array(hf['blk_%d' % k]['ldblk']))
+                      for k in range(1, len(hf) + 1)]
+    common = set(info)
+    for p in pops:
+        common &= {s for snps, _ in raw[p] for s in snps}
+        common &= {s for s in info if 0.0 < info[s][3][p] < 1.0}
+    if not common:
+        raise ValueError('no SNPs common to %s on chr%d in %s' % (pops, chrom, ref_dir))
+
+    order = {}
+    for p in pops:
+        order[p] = [s for snps, _ in raw[p] for s in snps if s in common]
+    ref_order = order[pops[0]]
+    for p in pops[1:]:
+        if order[p] != ref_order:
+            raise ValueError('populations order the common SNPs differently on chr%d '
+                             '(%s vs %s); the simulator needs one SNP order' % (chrom, pops[0], p))
+    if max_snps is not None:
+        ref_order = ref_order[:int(max_snps)]
+    keep = set(ref_order)
+
+    blocks, ridge_max = {}, ridge
+    for p in pops:
+        out = []
+        for snps, S in raw[p]:
+            idx = [i for i, s in enumerate(snps) if s in keep]
+            if not idx:
+                continue
+            B = S[np.ix_(idx, idx)].astype(float)
+            B = 0.5 * (B + B.T)
+            np.fill_diagonal(B, 1.0)
+            r = ridge
+            while True:
+                M = (1.0 - r) * B + r * np.eye(len(idx))
+                try:
+                    np.linalg.cholesky(M)
+                    break
+                except np.linalg.LinAlgError:
+                    r = min(2.0 * r, 1.0)
+            ridge_max = max(ridge_max, r)
+            out.append(M)
+        blocks[p] = out
+    return {'snps': ref_order,
+            'bp': [info[s][0] for s in ref_order],
+            'a1': [info[s][1] for s in ref_order],
+            'a2': [info[s][2] for s in ref_order],
+            'frq': {p: np.array([info[s][3][p] for s in ref_order]) for p in pops},
+            'blocks': blocks, 'chrom': chrom, 'ref_type': ref_type,
+            'ridge': ridge, 'ridge_max': ridge_max,
+            'n_blocks': {p: len(blocks[p]) for p in pops}}
+
+
+# ---------------------------------------------------------------------------
 # Causal architecture (mirrors simulate_mt: shared + trait-private causal sets,
 # correlated across (pop, trait) via a Kronecker-style covariance)
 # ---------------------------------------------------------------------------
@@ -224,7 +311,7 @@ def simulate_realistic(
     h2=None, rho_pheno=0.0, n_overlap=None,
     n_ref=500, n_test=5000, ld_hetero=0.15, ld_ridge=0.1,
     true_ld_ref=False, pop=None, out_dir=None, chrom=1, seed=42,
-    gwas_mode='indiv',
+    gwas_mode='indiv', ld_panel=None,
 ):
     """Simulate a realistic multi-trait / multi-ancestry replicate.
 
@@ -264,9 +351,19 @@ def simulate_realistic(
         (n_test is ignored); score with the analytic accuracy, which uses the
         true LD written to true_ld_<POP>.npz.
 
+    ld_panel : dict or None
+        A panel from ``load_ld_panel``. Its blocks become each population's TRUE
+        LD (replacing the synthetic AR(1) blocks), its SNP ids / alleles / BP and
+        allele frequencies are written out, and n_snp must equal its SNP count.
+        Block boundaries may differ by population. The reference handed to the
+        methods is still built from it as usual (sample panel or, with
+        true_ld_ref, the truth itself).
+
     ``rho_pheno`` / ``n_overlap`` are accepted for signature compatibility but
     NOT modelled (independent GWAS cohorts); see the module docstring.
     """
+    if ld_panel is not None and len(ld_panel['snps']) != n_snp:
+        raise ValueError('n_snp=%d but the LD panel has %d SNPs' % (n_snp, len(ld_panel['snps'])))
     if gwas_mode not in ('indiv', 'sumstat'):
         raise ValueError("gwas_mode must be 'indiv' or 'sumstat'")
     if n_causal is None:
@@ -296,7 +393,9 @@ def simulate_realistic(
         n_snp, n_causal, n_pop, n_trait, rg, frac_shared_causal, rho_pop, rng_arch)
 
     # ---- per-population true LD, decays spread around the base --------------
-    if isinstance(ld_decay, (list, np.ndarray)):
+    if ld_panel is not None:
+        decays = None
+    elif isinstance(ld_decay, (list, np.ndarray)):
         decays = list(ld_decay)
     else:
         # deterministic spread so pop 0 keeps ~ld_decay and others differ
@@ -304,28 +403,48 @@ def simulate_realistic(
         decays = [float(np.clip(ld_decay + spread[pp], 0.1, 0.9))
                   for pp in range(n_pop)]
 
-    R_pop, blocks_pop, chols_pop = {}, {}, {}
+    R_pop, blocks_pop, chols_pop, blk_sizes_pop = {}, {}, {}, {}
     blk_sizes = None
     for pp in range(n_pop):
-        R, blocks, sizes = _make_pop_ld(n_snp, block_size, decays[pp],
-                                        ld_hetero, rng_ld)
-        R_pop[pp] = R
-        blocks_pop[pp] = blocks
-        chols_pop[pp] = _chols(blocks)
-        blk_sizes = sizes  # identical block sizes across pops (same n_snp grid)
+        if ld_panel is not None:
+            # no dense R: a chromosome's worth of SNPs would not fit
+            R_pop[pp] = None
+            blocks_pop[pp] = ld_panel['blocks'][pop_labels[pp]]
+            blk_sizes_pop[pp] = [b.shape[0] for b in blocks_pop[pp]]
+        else:
+            R, blocks, sizes = _make_pop_ld(n_snp, block_size, decays[pp],
+                                            ld_hetero, rng_ld)
+            R_pop[pp] = R
+            blocks_pop[pp] = blocks
+            blk_sizes = sizes  # identical block sizes across pops (same n_snp grid)
+            blk_sizes_pop[pp] = sizes
+        chols_pop[pp] = _chols(blocks_pop[pp])
+
+    def _quad(pp, b):
+        if R_pop[pp] is not None:
+            return b @ R_pop[pp] @ b
+        sh, v = 0, 0.0
+        for blk in blocks_pop[pp]:
+            k = blk.shape[0]
+            v += b[sh:sh + k] @ blk @ b[sh:sh + k]
+            sh += k
+        return v
 
     # ---- heritability scaling per (pop, trait) using that pop's true LD -----
     beta_true = {}
     for pp in range(n_pop):
         for tt in range(n_trait):
             b = beta_unscaled[(pp, tt)].copy()
-            var_g = b @ R_pop[pp] @ b
+            var_g = _quad(pp, b)
             if var_g > 0:
                 b *= np.sqrt(h2[tt] / var_g)
             beta_true[(pp, tt)] = b
 
     # ---- per-population allele frequencies (cross-ancestry differences) -----
-    frq = {pp: rng_geno.uniform(0.1, 0.9, n_snp) for pp in range(n_pop)}
+    if ld_panel is not None:
+        frq = {pp: ld_panel['frq'][pop_labels[pp]] for pp in range(n_pop)}
+    else:
+        frq = {pp: rng_geno.uniform(0.1, 0.9, n_snp) for pp in range(n_pop)}
 
     # ---- GWAS (OLS), reference sample-LD, and held-out test cohort ----------
     beta_mrg, gwas_se, n_gwas_dict = {}, {}, {}
@@ -364,7 +483,7 @@ def simulate_realistic(
         # Reference panel: finite sample-LD, shrunk, as the PRS-CSx reference.
         Xr = _draw_geno(n_ref, chols_pop[pp], rng_geno)
         sh, blks, err_num, err_den = 0, [], 0.0, 0.0
-        for bsize, true_blk in zip(blk_sizes, blocks_pop[pp]):
+        for bsize, true_blk in zip(blk_sizes_pop[pp], blocks_pop[pp]):
             Xb = Xr[:, sh:sh + bsize]
             S = np.corrcoef(Xb, rowvar=False)
             if S.ndim == 0:            # single-SNP block guard
@@ -392,13 +511,20 @@ def simulate_realistic(
         test_pheno[pp] = ph.astype(np.float32)
         del Xt
 
-    snp_info = {
-        'SNP': ['rs%d' % (i + 1) for i in range(n_snp)],
-        'A1': ['A'] * n_snp,
-        'A2': ['G'] * n_snp,
-        'BP': list(range(1000, 1000 + n_snp * 1000, 1000)),
-        'CHR': [chrom] * n_snp,
-    }
+    if ld_panel is not None:
+        # real ids, alleles and positions; still labelled `chrom` (the driver
+        # runs every method on chromosome 1)
+        snp_info = {'SNP': list(ld_panel['snps']), 'A1': list(ld_panel['a1']),
+                    'A2': list(ld_panel['a2']), 'BP': list(ld_panel['bp']),
+                    'CHR': [chrom] * n_snp}
+    else:
+        snp_info = {
+            'SNP': ['rs%d' % (i + 1) for i in range(n_snp)],
+            'A1': ['A'] * n_snp,
+            'A2': ['G'] * n_snp,
+            'BP': list(range(1000, 1000 + n_snp * 1000, 1000)),
+            'CHR': [chrom] * n_snp,
+        }
 
     sim_data = {
         'beta_true': beta_true,
@@ -407,6 +533,7 @@ def simulate_realistic(
         'R_pop': R_pop,
         'ref_blocks': ref_blocks,
         'blk_sizes': blk_sizes,
+        'blk_sizes_pop': blk_sizes_pop,
         'snp_info': snp_info,
         'n_gwas': n_gwas_dict,
         'pop': pop_labels,
@@ -424,6 +551,8 @@ def simulate_realistic(
         'test_pheno': test_pheno,
         'blocks_pop': blocks_pop,
         'gwas_mode': gwas_mode,
+        'ld_panel': (None if ld_panel is None else
+                     {k: ld_panel[k] for k in ('chrom', 'ref_type', 'ridge', 'ridge_max', 'n_blocks')}),
     }
 
     if out_dir is not None:
@@ -488,7 +617,7 @@ def _write_realistic_files(sim_data, out_dir, chrom):
         with h5py.File(os.path.join(ld_dir, 'ldblk_1kg_chr%d.hdf5' % chrom), 'w') as hf:
             sh = 0
             for bn, (blk, bsize) in enumerate(zip(sim_data['ref_blocks'][pp],
-                                                  sim_data['blk_sizes'])):
+                                                  sim_data['blk_sizes_pop'][pp])):
                 grp = hf.create_group('blk_%d' % (bn + 1))
                 grp.create_dataset('ldblk', data=blk)
                 grp.create_dataset('snplist',
@@ -527,6 +656,7 @@ def _write_realistic_files(sim_data, out_dir, chrom):
         json.dump({
             'sim_mode': 'realistic',
             'gwas_mode': sim_data['gwas_mode'],
+            'ld_panel': sim_data['ld_panel'],
             'pop': pop,
             'n_snp': n_snp, 'n_pop': n_pop, 'n_trait': n_trait,
             'ld_decays': sim_data['decays'],
